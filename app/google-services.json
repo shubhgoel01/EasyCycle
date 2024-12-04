@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "404107299914",
+    "project_id": "easycycle-e9d9b",
+    "storage_bucket": "easycycle-e9d9b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:404107299914:android:9639c7af07f8cb24e4eab3",
+        "android_client_info": {
+          "package_name": "com.example.easycycle"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCV2SOQc1VowZdMf06koh-HVoVwmJluZkk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
