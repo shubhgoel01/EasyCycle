@@ -13,9 +13,9 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.example.easycycle.calculateEstimatedCost
 import com.example.easycycle.data.Enum.ScheduleState
 import com.example.easycycle.data.remote.StudentFirebaseService
-import com.example.easycycle.presentation.ui.calculateEstimatedCost
 import com.example.easycycle.presentation.viewmodel.UserViewModel
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -86,7 +86,7 @@ class CycleStateWorker @AssistedInject constructor(
 
     private suspend fun updatePrevBalance(userUid:String, startTime:Long, estimateTime: Long){
         //Update prevBalance in user
-        var updatedPrevBalance = calculateEstimatedCost(startTime, estimateTime)
+        var updatedPrevBalance = calculateEstimatedCost(System.currentTimeMillis() - (startTime + estimateTime))
         studentFirebaseService.updatePrevBalance(userUid,updatedPrevBalance)
         //userViewModel.updateExtendedFare(updatedPrevBalance)
     }

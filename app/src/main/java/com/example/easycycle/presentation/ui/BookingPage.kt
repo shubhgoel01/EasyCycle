@@ -34,11 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.easycycle.calculateEstimatedCost
 import com.example.easycycle.data.Enum.Location
 import com.example.easycycle.presentation.ui.components.AssistChipExample
 import com.example.easycycle.presentation.ui.components.ComponentDropdown
 import com.example.easycycle.presentation.ui.components.Component_Button
-import com.example.easycycle.presentation.ui.components.SimpleTimeInputDialog
+import com.example.easycycle.presentation.ui.components.TimeInputDialog
 import com.example.easycycle.presentation.ui.components.displayTime
 
 @Composable
@@ -56,39 +57,49 @@ fun BookingPage(rentNow: Boolean, rentLater: Boolean) {
     var expandedLocation2 by remember { mutableStateOf(false) }
     val onExpandChangeLocation2: () -> Unit = { expandedLocation2 = !expandedLocation2 }
 
-    // Time selection state
-    var selectedHour by remember { mutableStateOf(0) }
-    var selectedMinute by remember { mutableStateOf(0) }
-
-    var showTimeInputDialog by remember { mutableStateOf(false) }
+    var showTimeInputDialog1 by remember { mutableStateOf(false) }
     var hour1 by remember { mutableStateOf<Int?>(null) }
     var minute1 by remember { mutableStateOf<Int?>(null) }
     val onConfirmTimePicker1 :(hour:Int,minute:Int)->Unit = {h,m->
-        showTimeInputDialog = false
+        showTimeInputDialog1 = false
         hour1 = h
         minute1 = m
     }
+    val onDismissTimeInputDialog1 = {
+        showTimeInputDialog1 = false
+    }
+    if(showTimeInputDialog1){
+        TimeInputDialog(hour1,minute1,onConfirmTimePicker1,onDismissTimeInputDialog1,true)
+    }
 
+    var showTimeInputDialog2 by remember { mutableStateOf(false) }
     var hour2 by remember { mutableStateOf<Int?>(null) }
     var minute2 by remember { mutableStateOf<Int?>(null) }
     val onConfirmTimePicker2 :(hour:Int,minute:Int)->Unit = {h,m->
-        showTimeInputDialog = false
+        showTimeInputDialog2 = false
         hour2 = h
         minute2 = m
     }
-    val onDismissTimePicker = {
-        showTimeInputDialog = false
+    val onDismissTimeInputDialog2 = {
+        showTimeInputDialog2 = false
+    }
+    if(showTimeInputDialog2){
+        TimeInputDialog(
+            if(hour2==null) 0 else hour2,
+            if(minute2==null) 0 else minute2,
+            onConfirmTimePicker2,
+            onDismissTimeInputDialog2,
+            false)
     }
 
-    var onClickDisplayTime = {
-        showTimeInputDialog = true
+    var estimateCost by remember { mutableStateOf<Int?>(null) }
+    if(hour2!=null && minute2!=null){
+        estimateCost = calculateEstimatedCost((hour2!! *60+ minute2!!).toLong()*60*100).toInt()
     }
-    if(showTimeInputDialog){
-        SimpleTimeInputDialog(onConfirmTimePicker1,onDismissTimePicker)
-    }
+
 
     val onButtonClick: () -> Unit = {
-        // Booking action logic here
+        // TODO
     }
 
     Box(
@@ -175,14 +186,18 @@ fun BookingPage(rentNow: Boolean, rentLater: Boolean) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 //Time Displayer
-                displayTime(hour1,minute1,onClickDisplayTime)
+                displayTime(hour1,minute1){
+                    showTimeInputDialog1 = true
+                }
 
                 Text(
                     text = "Estimate schedule Time",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                displayTime(hour2,minute2,onClickDisplayTime)
+                displayTime(hour2,minute2){
+                    showTimeInputDialog2 = true
+                }
                 Row {
                     Text(
                         text = "Estimate Fare : ",
@@ -190,7 +205,7 @@ fun BookingPage(rentNow: Boolean, rentLater: Boolean) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "$20",
+                        text = if(estimateCost!=null) "$$estimateCost".toString() else "",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Green
                     )

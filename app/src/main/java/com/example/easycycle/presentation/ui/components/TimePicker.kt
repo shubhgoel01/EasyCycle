@@ -1,8 +1,5 @@
 package com.example.easycycle.presentation.ui.components
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,13 +13,16 @@ import androidx.compose.ui.window.DialogProperties
 import java.util.*
 
 @Composable
-fun SimpleTimeInputDialog(
+fun TimeInputDialog(
+    prevHour:Int?,
+    prevMin:Int?,
     onConfirm: (Int, Int) -> Unit,
     onDismiss: () -> Unit,
+    greaterThanCurrentTime:Boolean
 ) {
     val currentTime = Calendar.getInstance()
-    val initialHour = currentTime.get(Calendar.HOUR_OF_DAY)
-    val initialMinute = currentTime.get(Calendar.MINUTE)
+    val initialHour = if(prevHour == null) currentTime.get(Calendar.HOUR_OF_DAY) else prevHour
+    val initialMinute = if(prevMin == null) currentTime.get(Calendar.MINUTE) else prevMin
 
     var selectedHour by remember { mutableStateOf(initialHour) }
     var selectedMinute by remember { mutableStateOf(initialMinute) }
@@ -37,7 +37,7 @@ fun SimpleTimeInputDialog(
         val currentTotalMinutes = initialHour * 60 + initialMinute
         val enteredTotalMinutes = hour * 60 + minute
 
-        enteredTotalMinutes >= currentTotalMinutes
+        enteredTotalMinutes >= currentTotalMinutes || !greaterThanCurrentTime
     }
     val showError = remember { mutableStateOf(false) }
 
@@ -145,19 +145,4 @@ fun SimpleTimeInputDialog(
     }
 }
 
-
-@Composable
-@Preview(showBackground = true)
-fun SimpleTimeInputDialogPreview() {
-    MaterialTheme {
-        SimpleTimeInputDialog(
-            onConfirm = { hour, minute ->
-                println("Selected time: $hour:$minute")
-            },
-            onDismiss = {
-                println("Dialog dismissed")
-            }
-        )
-    }
-}
 

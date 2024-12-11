@@ -50,6 +50,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.easycycle.data.model.Student
 import com.example.easycycle.R
+import com.example.easycycle.calculateTimeElapsed
 import com.example.easycycle.data.Enum.ScheduleState
 import com.example.easycycle.data.model.Schedule
 import com.example.easycycle.data.model.SchedulesDataState
@@ -329,38 +330,7 @@ fun ScheduleScreen(
     }
 }
 
-fun calculateTimeElapsed(startTime: Long, estimatedTime: Long): String {
-    // Calculate the actual elapsed time beyond the estimated time
-    val elapsedMillis = System.currentTimeMillis() - (startTime + estimatedTime)
-    val minutes = elapsedMillis / (1000 * 60)
-    return "$minutes minutes" // Return the elapsed time in minutes
-}
 
-fun calculateEstimatedCost(startTime: Long, estimatedTime: Long): Long {
-    // Calculate the actual elapsed time beyond the estimated time in milliseconds
-    val elapsedMillis = System.currentTimeMillis() - (startTime + estimatedTime)
-
-    // Convert elapsed time to minutes
-    val elapsedMinutes = elapsedMillis / (1000 * 60)
-
-    // If there is no extra time, the cost is 0
-    if (elapsedMinutes <= 0) return 0
-
-    // Calculate the upper limit (round up to the next hour)
-    val upperLimitInHours = ceil(elapsedMinutes / 60.0).toInt()
-
-    // Calculate the cost (2 rupees per hour)
-    val cost = upperLimitInHours * 2
-
-    return cost.toLong()
-}
-
-
-@RequiresApi(Build.VERSION_CODES.O)
-fun formatTimestamp(timestamp: Long): String {
-    val formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a")
-    return Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(formatter)
-}
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
