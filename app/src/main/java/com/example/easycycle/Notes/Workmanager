@@ -1,0 +1,36 @@
+
+LINK : https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started
+Best Youtube Channel : https://youtu.be/O9_RSYSmeIE?feature=shared
+
+1.Worker / CoroutineWorker: Worker is a class that performs work synchronously on a background thread. As we are interested in
+asynchronous work, we can use CoroutineWorker, which has interoperability with Kotlin Coroutines. In this app, you extend from the
+CoroutineWorker class and override the doWork() method. This method is where you put the code for the actual work you want to perform in
+the background.
+
+2.WorkRequest: This class represents a request to do some work. A WorkRequest is where you define if the worker needs to be run once or
+periodically. Constraints can also be placed on the WorkRequest that require certain conditions are met before the work runs. One example
+ is that the device is charging before starting the requested work. You pass in your CoroutineWorker as part of creating your WorkRequest.
+
+3.WorkManager: This class actually schedules your WorkRequest and makes it run. It schedules a WorkRequest in a way that spreads out the
+load on system resources, while honoring the constraints you specify.
+In your case, you define a new BlurWorker class, which contains the code to blur an image. When you click the Start button, WorkManager
+creates and then enqueues a WorkRequest object.
+
+4.When to use
+    The WorkManager library is a good choice for tasks that you need to complete. The running of these tasks is not dependent on the app
+    continuing to run after the work is enqueued. The tasks run even if the app is closed or the user returns to the home screen.
+    For Scheduled tasks that start at a later time and can run periodically and send notifications or tasks that meet certian conditions
+    like network is available, when not on low battery, when connected to wifi, etc.
+
+
+NOTE : ViewModel should not be passed directly to the worker,
+1. Best Practice:
+   Instead of passing the ViewModel, use the underlying data sources (e.g., repositories or services) that the ViewModel interacts with.
+   These sources are typically designed to be lifecycle-independent, making them suitable for long-running tasks like WorkManager.
+
+2. Worker Lifecycle vs. ViewModel Scope:
+   A ViewModel is tied to an Activity or Fragment lifecycle.
+   A Worker, managed by WorkManager, operates outside the lifecycle of any UI components. It can execute even if the app is killed or in
+   the background, making ViewModel unsuitable because:
+        The ViewModel might no longer exist when the worker runs.
+        Directly passing a ViewModel could lead to memory leaks or crashes if the associated lifecycle owner is destroyed.

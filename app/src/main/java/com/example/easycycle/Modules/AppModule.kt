@@ -1,5 +1,8 @@
 package com.example.easycycle.Modules
 
+import android.content.Context
+import androidx.work.WorkerParameters
+import com.example.easycycle.Worker.CycleStateWorker
 import com.example.easycycle.data.model.Admin
 import com.example.easycycle.data.remote.AdminFirebaseService
 import com.example.easycycle.data.remote.CycleFirebaseService
@@ -16,47 +19,51 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import dagger.Module
 import dagger.Provides
+import dagger.assisted.AssistedFactory
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Module
-@InstallIn(SingletonComponent::class)       //1
-object AppModule {      //2
+@InstallIn(SingletonComponent::class)
+object AppModule {
+
     @Provides
     @Singleton
     fun provideAdminUseCases(
         adminDatabase: AdminFirebaseService,
-        sharedDatabase : SharedFirebaseService
-    ):AdminUseCases{
-        return AdminUseCases(adminDatabase,sharedDatabase)
+        sharedDatabase: SharedFirebaseService
+    ): AdminUseCases {
+        return AdminUseCases(adminDatabase, sharedDatabase)
     }
 
     @Provides
     @Singleton
     fun provideStudentUseCases(
         studentDatabase: StudentFirebaseService,
-        sharedDatabase : SharedFirebaseService
-    ):StudentUseCases{
-        return StudentUseCases(studentDatabase,sharedDatabase)
+        sharedDatabase: SharedFirebaseService,
+        context: Context
+    ): StudentUseCases {
+        return StudentUseCases(studentDatabase, sharedDatabase, context)
     }
 
     @Provides
     @Singleton
-    fun provideAdminFireBAseService(
+    fun provideAdminFirebaseService(
         firebaseDatabase: FirebaseDatabase
-    ):AdminFirebaseService{
+    ): AdminFirebaseService {
         return AdminFirebaseService(firebaseDatabase)
     }
 
     @Provides
     @Singleton
-    fun provideStudentFireBAseService(
+    fun provideStudentFirebaseService(
         firebaseDatabase: FirebaseDatabase,
         auth: FirebaseAuth,
-        firebaseStorage: FirebaseStorage,
-        ): StudentFirebaseService {
-        return StudentFirebaseService(firebaseDatabase,auth,firebaseStorage)
+        firebaseStorage: FirebaseStorage
+    ): StudentFirebaseService {
+        return StudentFirebaseService(firebaseDatabase, auth, firebaseStorage)
     }
 
     @Provides
@@ -65,7 +72,7 @@ object AppModule {      //2
         firebaseDatabase: FirebaseDatabase,
         auth: FirebaseAuth
     ): SharedFirebaseService {
-        return SharedFirebaseService(firebaseDatabase,auth)
+        return SharedFirebaseService(firebaseDatabase, auth)
     }
 
     @Provides
@@ -93,7 +100,18 @@ object AppModule {      //2
     fun provideStorage(): FirebaseStorage {
         return Firebase.storage
     }
+
+    @Provides
+    @Singleton
+    fun provideApplicationContext(
+        @ApplicationContext context: Context
+    ): Context {
+        return context
+    }
 }
+
+
+
 
 
 /*

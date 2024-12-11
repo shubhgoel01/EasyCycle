@@ -18,6 +18,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -57,7 +58,7 @@ class SharedViewModel @Inject constructor(
             if(loginMethod == "Email")
                 studentLoginData.email=userId
             else studentLoginData.registrationNumber=userId
-            viewModelScope.launch {
+            viewModelScope.launch(Dispatchers.IO) {
                 try {
                     flag = studentUseCase.login(studentLoginData,password){
                         updateCurrentUser()
@@ -78,7 +79,7 @@ class SharedViewModel @Inject constructor(
     }
 
     fun getUserRole(userUid:String,onComplete:(String)->Unit){
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val role = sharedDatabase.getUserRole(userUid)
             onComplete(role)
         }
@@ -90,7 +91,7 @@ class SharedViewModel @Inject constructor(
 
     fun reloadCurrentUser()
     {
-        viewModelScope.launch {
+        viewModelScope.launch{
             sharedDatabase.reloadCurrentUser()
         }
     }

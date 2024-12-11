@@ -1,27 +1,35 @@
 package com.example.easycycle.data.remote
 
+import android.content.Context
+import android.os.Build
 import android.util.Log
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.annotation.RequiresApi
+import androidx.work.BackoffPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import com.example.easycycle.Worker.CycleStateWorker
+import com.example.easycycle.data.Enum.ScheduleState
+import com.example.easycycle.data.model.Schedule
+import com.example.easycycle.data.model.SchedulesDataState
 import com.example.easycycle.data.model.Student
 import com.example.easycycle.data.model.StudentDataState
 import com.example.easycycle.data.model.User
 import com.example.easycycle.data.model.userDataState
-import com.example.easycycle.presentation.viewmodel.UserViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
-import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 
@@ -233,6 +241,173 @@ class StudentFirebaseService @Inject constructor(
         }
         catch (e:Exception){
             Log.e("addUser","Error while adding new user")
+            throw e
+        }
+    }
+
+    suspend fun fetchScheduleId(userUid: String): String? {
+        Log.d("schedule", "Inside fetchScheduleId Getting schedule id for user uid= $userUid")
+        var scheduleId: String? = null
+        val ref = database.child("User").child(userUid).child("scheduleId")
+        try {
+            val snapshot = ref.get().await()
+            if (snapshot.exists()) {
+                Log.d("ScheduleId", "SnapshotExists")
+                scheduleId = snapshot.getValue(String::class.java)
+            } else {
+                Log.d("ScheduleId", "Snapshot does not exist")
+            }
+        } catch (e: Exception) {
+            Log.d("studentFirebaseService fetchScheduleId", "Error occurred $e")
+            throw e
+        }
+
+        return scheduleId
+    }
+
+
+    suspend fun fetchSchedule(scheduleId: String): SchedulesDataState {
+        Log.d("fetchSchedule", "Fetching schedule with ID: $scheduleId")
+
+        Log.d("Schedule","Entered scheduleId $scheduleId")
+        val scheduleRef = database.child("Schedule").child(scheduleId)
+
+        return try {
+            val snapshot = scheduleRef.get().await()
+            if (snapshot.exists()) {
+                val schedule = snapshot.getValue(Schedule::class.java)
+                if (schedule != null) {
+                    Log.d("Schedule","Schedule data fetched successfully")
+                    Log.d("Fetched Scheduled Value",schedule.toString())
+                    SchedulesDataState(
+                        isLoading = false,
+                        error = false,
+                        schedule = schedule
+                    )
+
+                } else {
+                    Log.d("Schedule","Schedule data is null")
+                    SchedulesDataState(
+                        isLoading = false,
+                        error = true,
+                        errorMessage = "Schedule data is null"
+                    )
+                }
+            } else {
+                SchedulesDataState(
+                    isLoading = false,
+                    error = true,
+                    errorMessage = "Schedule not found with ID: $scheduleId"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("fetchSchedule", "Error fetching schedule with ID: $scheduleId", e)
+            SchedulesDataState(
+                isLoading = false,
+                error = true,
+                errorMessage = "Error occurred: ${e.message}"
+            )
+        }
+    }
+
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun scheduleStartCheck(userUid:String, scheduleUid: String, startTime:Long, context: Context) {
+        val delayMillis =startTime - System.currentTimeMillis()
+
+        val workRequest = OneTimeWorkRequestBuilder<CycleStateWorker>()
+            .setInputData(
+                workDataOf(
+                    "scheduleUid" to scheduleUid,
+                    "action" to "start",
+                    "userUid" to userUid
+                )
+            )
+            .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+            .setBackoffCriteria(
+                backoffPolicy = BackoffPolicy.LINEAR,
+                duration = Duration.ofSeconds(30)
+            )
+            .build()
+
+        WorkManager.getInstance(context).enqueue(workRequest)
+        Log.d("Worker","LastLine")
+    }
+
+    suspend fun startTimeAndExpectedTime(scheduleUid:String):Pair<Long,Long>{
+        val scheduleRef = database.child("Schedule").child(scheduleUid)
+        val scheduleEstimateTimeRef = scheduleRef.child("estimateTime")
+        val estimateTimeSnapshot = scheduleEstimateTimeRef.get().await()
+        val startTimeRef = scheduleRef.child("startTime")
+
+        var estimateTime : Long? = null
+        if(estimateTimeSnapshot.exists()){
+            estimateTime = estimateTimeSnapshot.getValue(Long::class.java)
+        }
+        else{
+            Log.d("Worker","Error while fetching the schedule Status")
+            throw Exception("Error while fetching the schedule Status")
+        }
+
+        val startTimeSnapshot = startTimeRef.get().await()
+        var StartTime : Long? = null
+        if(startTimeSnapshot.exists()){
+            StartTime = startTimeSnapshot.getValue(Long::class.java)
+        }
+        else{
+            Log.d("Worker","Error while fetching the schedule startTime")
+            throw Exception("Error while fetching the schedule startTime")
+        }
+
+        if(StartTime == null || estimateTime==null){
+            Log.d("Worker","StartTime or estimateTime is null")
+            throw Exception("StartTime or estimateTime is null")
+        }
+
+        return Pair(StartTime,estimateTime)
+    }
+
+    suspend fun updateScheduleState(scheduleUid:String, newState: ScheduleState){
+        val scheduleRef = database.child("Schedule").child(scheduleUid)
+        val scheduleStateRef = scheduleRef.child("Status").child("status")
+        try {
+            scheduleStateRef.setValue(newState).await()
+            Log.d("Worker","Successfully updated schedule state")
+        }
+        catch (e:Exception){
+            Log.d("Worker","Failed to update the schedule state $e")
+            throw e
+        }
+    }
+
+    suspend fun updatePrevBalance(userUid:String, balance:Long){
+        val scheduleRef = database.child("Schedule")
+        val prevBalanceRef=userRef.child(userUid).child("prevBalance")
+
+        try {
+            prevBalanceRef.setValue(balance).await()
+            Log.d("Worker","Previous Balance Updated in user")
+        }
+        catch (e:Exception){
+            Log.d("Worker","Error while updating the prevBalance in user $e")
+            throw e
+        }
+    }
+
+    suspend fun createSchedule(userUid:String, schedule:Schedule) : Pair<String,Long> {
+        val scheduleRef = database.child("Schedule")
+        val userRef = userRef.child(userUid).child("scheduleId")
+        try {
+            val scheduleUid = scheduleRef.push().key
+            if(scheduleUid !=null){
+                scheduleRef.child(scheduleUid).setValue(schedule).await()
+                userRef.setValue(scheduleUid).await()
+                return Pair(scheduleUid,schedule.startTime)
+            }
+            else throw Exception("Schedule Uid is null inside createSchedule")
+        }
+        catch(e:Exception){
+            Log.d("createSchedule","Error occurred when creating a new Schedule $e")
             throw e
         }
     }

@@ -1,5 +1,7 @@
 package com.example.easycycle.data.model
 
+import com.example.easycycle.data.Enum.Location
+import com.example.easycycle.data.Enum.ScheduleState
 import java.io.Serializable
 
 data class Schedule(
@@ -8,16 +10,28 @@ data class Schedule(
     var startTime: Long = 0L,
     var estimateTime: Long = 0L,
     var scheduleUid: String = "",
-    var paymentId: String = "",
-    var status: ScheduleStatus = ScheduleStatus()
-    //var startDestination:String="",     //For future
-    //var endDestination:String="",       //For future
+    var paymentDetail : PaymentDetail = PaymentDetail(),
+    var Status: ScheduleStatus = ScheduleStatus(),
+    var startDestination: Location =Location.NILGIRI,       //For future
+    var endDestination:Location=Location.NILGIRI,       //For future
 ) : Serializable
+
+data class ScheduleStatus(
+    var status: ScheduleState = ScheduleState.BOOKED,
+    var statusTime: Long = 0L,      //Basically completion time
+    var delay: Delay? = null,
+    var beforeTime: BeforeTime? = null
+)
 
 data class Delay(
     var isDelay: Boolean = false,
     var penalty: Double = 0.0,
     var paymentId: String = ""
+)
+
+data class PaymentDetail(
+    var paymentId: String = "",
+    var amount:Long = 0L
 )
 
 
@@ -26,22 +40,10 @@ data class BeforeTime(
     var amountReturned: Double = 0.0        //For future use
 )
 
-enum class ScheduleState {
-    COMPLETED,  // Indicates the schedule is completed
-    CANCELLED,  // Indicates the schedule is cancelled
-    ONGOING     // Indicates the schedule is in progress
-}
-
-data class ScheduleStatus(
-    var status: ScheduleState = ScheduleState.ONGOING,
-    var statusTime: Long = 0L,
-    var delay: Delay? = null,
-    var beforeTime: BeforeTime? = null
-)
 
 data class SchedulesDataState(
     val isLoading: Boolean = true,
     val error: Boolean = false,
-    val scheduleDataList: List<Schedule> = emptyList(),
+    var schedule:Schedule? = null,
     val errorMessage: String = ""
 )

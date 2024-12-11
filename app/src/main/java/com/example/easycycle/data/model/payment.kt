@@ -1,5 +1,7 @@
 package com.example.easycycle.data.model
 
+import com.example.easycycle.data.Enum.PaymentStatus
+
 data class Payment(
     var paymentUId: String = "",
     var scheduleId: String = "",
@@ -10,7 +12,3 @@ data class Payment(
     var transactionDetails: String = "" // Description of payment method
 )
 
-enum class PaymentStatus {
-    COMPLETED,
-    CANCELLED
-}

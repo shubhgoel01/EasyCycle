@@ -1,10 +1,8 @@
 package com.example.easycycle.data.remote
 
 import android.util.Log
-import android.widget.Toast
+import com.example.easycycle.data.Enum.Location
 import com.example.easycycle.data.model.Cycle
-import com.example.easycycle.data.model.CycleLocation
-import com.example.easycycle.data.model.CycleStatus
 import com.example.easycycle.data.model.allCycleDataState
 import com.example.easycycle.data.model.cycleUpdateState
 import com.google.firebase.database.DataSnapshot
@@ -26,11 +24,11 @@ class CycleFirebaseService @Inject constructor(
 
     private var databaseListener: ValueEventListener? = null
 
-    suspend fun getAllCycles(location: CycleLocation): List<Cycle> {
+    suspend fun getAllCycles(location: Location): List<Cycle> {
         val cycleList = mutableListOf<Cycle>()
         var allCycleDataState : allCycleDataState = allCycleDataState()
 
-        val query = if (location == CycleLocation.ALL) {
+        val query = if (location == Location.ALL) {
             cyclesRef // No filtering, fetch all cycles
         } else {
             cyclesRef.orderByChild("location").equalTo(location.name) // Filter by location
@@ -74,9 +72,9 @@ class CycleFirebaseService @Inject constructor(
     }
 
 
-    fun removeEventListener(location: CycleLocation) {
+    fun removeEventListener(location: Location) {
         try {
-            val query = if (location == CycleLocation.ALL) {
+            val query = if (location == Location.ALL) {
                 cyclesRef // No filtering, fetch all cycles
             } else {
                 cyclesRef.orderByChild("location").equalTo(location.name) // Filter by location
@@ -188,5 +186,4 @@ class CycleFirebaseService @Inject constructor(
             )
         }
     }
-
 }

@@ -1,5 +1,8 @@
 package com.example.easycycle.data.model
 
+import com.example.easycycle.data.Enum.CouponStatus
+import com.example.easycycle.data.Enum.CouponType
+
 //For future updates
 
 data class Coupon(
@@ -17,15 +20,8 @@ data class Coupon(
     var createdByAdminId: String = "",        // Admin ID who created this coupon
     var couponType: CouponType = CouponType.GENERAL // Type of coupon (General/User-Specific)
 )
-enum class CouponStatus {
-    ACTIVE,    // Coupon is currently active and valid
-    EXPIRED,   // Coupon has expired
-    DISABLED   // Coupon is disabled by admin
-}
-enum class CouponType {
-    GENERAL,       // Coupon can be used by all users
-    USER_SPECIFIC  // Coupon is for specific users
-}
+
+
 
 data class AppliedCoupon(
     var userId: String = "",                  // ID of the user who applied the coupon

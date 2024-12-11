@@ -9,7 +9,9 @@ data class User(
     var userEngagementId: UserEngagement=UserEngagement(),
     var firstLogInTimeStamp:Long=0L,       //First time when user registered or signed in
     var account_Enabled:Boolean=true,
-    var stayLoggedIn:Boolean = true
+    var stayLoggedIn:Boolean = true,
+    var scheduleId:String = "",
+    var prevBalance : Double = 0.toDouble()
 )
 data class UserEngagement(
     var totalCompletedRides: Int = 0,

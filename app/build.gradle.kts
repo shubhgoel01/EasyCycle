@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+
     //For HITL dependency injection
     id("kotlin-kapt")
     id("com.google.dagger.hilt.android")
@@ -97,6 +98,12 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.51.1")
     kapt("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation ("androidx.hilt:hilt-navigation-compose:1.0.0")
+
+    //WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.8.1")
+
+    implementation ("androidx.hilt:hilt-work:1.0.0")
+    kapt ("androidx.hilt:hilt-compiler:1.0.0")
 
 }
 kapt {

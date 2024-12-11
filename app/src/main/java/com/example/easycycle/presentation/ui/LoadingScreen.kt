@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LoadingPage() {
+fun LoadingPage(Messgae:String = "") {
     // Display loading circle
     Box(
         modifier = Modifier

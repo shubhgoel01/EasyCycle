@@ -1,8 +1,12 @@
 package com.example.easycycle.domain.usecases
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresApi
+import com.example.easycycle.data.model.Schedule
+import com.example.easycycle.data.model.SchedulesDataState
 import com.example.easycycle.data.model.Student
 import com.example.easycycle.data.model.StudentDataState
 import com.example.easycycle.data.model.User
@@ -11,11 +15,13 @@ import com.example.easycycle.data.remote.SharedFirebaseService
 import com.example.easycycle.data.remote.StudentFirebaseService
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 class StudentUseCases @Inject constructor(
     private val studentDatabase: StudentFirebaseService,
-    private val sharedDatabase : SharedFirebaseService
+    private val sharedDatabase : SharedFirebaseService,
+    @ApplicationContext private val context: Context
 ) {
     suspend fun login (studentLoginData:Student,password:String,onComplete:()->Unit):Boolean
     {
@@ -101,5 +107,42 @@ class StudentUseCases @Inject constructor(
     suspend fun fetchUserdata(userUid:String , onComplete:(updatedUserDataState : userDataState)->Unit){
         Log.d("User","FetchUserDetails UseCases")
         studentDatabase.fetchUserDetails(userUid, onComplete)
+    }
+
+
+//Can be simplified I can directly pass schedule id in some cases like in myApp
+    suspend fun fetchSchedule(userUid: String, onComplete: (SchedulesDataState) -> Unit) {
+        Log.d("studentUseCases", "Fetching Schedules Data")
+
+        try {
+            val scheduleId = studentDatabase.fetchScheduleId(userUid)
+
+            if (scheduleId.isNullOrEmpty()) {
+                Log.d("Schedule","Successfully Updated ScheduleDataState")
+                onComplete(SchedulesDataState(
+                    isLoading = false,
+                    error = false,
+                    errorMessage = "No schedule found for the given user"
+                ))
+            } else {
+                onComplete(studentDatabase.fetchSchedule(scheduleId))
+            }
+
+        } catch (e: Exception) {
+            Log.d("studentUseCases", "Error occurred when fetching schedule: ${e.message}")
+
+            onComplete(SchedulesDataState(
+                isLoading = false,
+                error = true,
+                errorMessage = "An error occurred while fetching the schedule: ${e.message}"
+            ))
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun createSchedule(userUid:String, schedule: Schedule, onComplete:()->Unit){
+        val info = studentDatabase.createSchedule(userUid, schedule)
+        studentDatabase.scheduleStartCheck(userUid,info.first,info.second,context)
+        onComplete()
     }
 }
