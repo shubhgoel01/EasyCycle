@@ -1,0 +1,31 @@
+"suspendCoroutine" -
+    suspendCoroutine is used to convert an asynchronous task (such as a network request or a database operation) into something
+    that looks like a synchronous task when working with Kotlin coroutines.
+    When to use suspendCoroutine:
+        To make an asynchronous task behave like a synchronous one: This is useful when you want the coroutine to "pause" until the
+        asynchronous operation is complete before moving on to the next step.
+        Ensuring task completion before proceeding: For example, if you're writing code that depends on the result of an asynchronous
+         operation, you can use suspendCoroutine to make sure that the task is finished before continuing to the next line of code.
+
+EXAMPLE TO UNDERSTAND SYNCHRONOUS AND ASYNCHRONOUS TASK
+    When you send someone to do something (like buy groceries), they return when it's done. You can't just wait at home and expect the
+    groceries to appear. This is like a callback-based operation.
+    On the other hand, suspending the task is like saying, "I'll pause here until you return with the groceries." Once they return, you
+    can continue with what you're doing. This is what happens with suspendCoroutine — it pauses the coroutine until the asynchronous task
+    is complete.
+
+---------------------------------------------------------
+"suspendCancellableCoroutine" -
+    suspendCancellableCoroutine is a specialized version of suspendCoroutine in Kotlin. It is used when you want to suspend a coroutine
+    and ensure that the coroutine can be canceled safely when the coroutine is no longer needed.
+    While suspendCoroutine is used to suspend a coroutine and wait for an asynchronous operation to finish, suspendCancellableCoroutine
+    adds the ability to cancel the coroutine if it is no longer required. This is particularly useful in cases where you need to support
+    cancellation and resource cleanup for long-running asynchronous tasks.
+    When you suspend a coroutine, it can remain in a suspended state for some time while waiting for an operation to finish. If the caller
+    of the coroutine cancels the operation (for example, the user navigates away from the screen, or some other condition occurs), you
+    want to cancel the operation and release any resources that were being used.
+    suspendCancellableCoroutine is used to suspend a coroutine and support cancellation of the operation.
+    It allows you to gracefully clean up resources and handle cancellation scenarios, which is important when dealing with tasks that
+    might be canceled during their execution (such as network requests, database queries, etc.).
+
+----------------------------------------------------------

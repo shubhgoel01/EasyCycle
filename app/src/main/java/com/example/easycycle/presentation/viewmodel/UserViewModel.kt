@@ -115,4 +115,10 @@ class UserViewModel @Inject constructor(
             }
         }
     }
+
+    fun startTimer(){
+        viewModelScope.launch(Dispatchers.IO) {
+
+        }
+    }
 }

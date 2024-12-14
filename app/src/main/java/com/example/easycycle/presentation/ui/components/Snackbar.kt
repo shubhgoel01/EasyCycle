@@ -1,5 +1,6 @@
 package com.example.easycycle.presentation.ui.components
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,24 +26,31 @@ import kotlinx.coroutines.launch
 fun ComponentSnackbar(
     message: String,
     actionLabel: String? = null,
-    duration: SnackbarDuration = SnackbarDuration.Short,
+    duration: SnackbarDuration = SnackbarDuration.Indefinite,
     onActionClick: (() -> Unit)? = null,
     snackbarHostState: SnackbarHostState
 ) {
+    Log.d("Snackbar","SnackBar Displayed")
     val scope = rememberCoroutineScope()
 
     scope.launch {
+        Log.d("Snackbar","Launched")
         val result = snackbarHostState.showSnackbar(
             message = message,
             actionLabel = actionLabel,
             duration = duration
         )
+        Log.d("Snackbar","Result: ${result.toString()}")
         when (result) {
             SnackbarResult.ActionPerformed -> {
+                Log.d("Snackbar","Completed")
                 onActionClick?.invoke()
             }
             SnackbarResult.Dismissed -> {
-                /* Handle dismissal if needed */
+                Log.d("Snackbar","Cancelled")
+            }
+            else ->{
+                Log.d("Snackbar",result.toString())
             }
         }
     }

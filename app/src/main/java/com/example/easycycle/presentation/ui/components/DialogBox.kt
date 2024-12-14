@@ -26,8 +26,13 @@ import androidx.compose.ui.window.Dialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Component_tDialogBox(heading:String?=null,pointsList:List<String>?=null,body:String?=null,onDismissRequest: () -> Unit,) {
-    Dialog(onDismissRequest = { /*TODO*/ }) {
+fun Component_tDialogBox(
+    heading:String?=null,
+    pointsList:List<String>?=null,
+    body:String?=null,
+    onDismissRequest: () -> Unit,
+    composable: (@Composable () -> Unit)? = null
+    ) {
         Dialog(onDismissRequest = { onDismissRequest() }) {
             Card(
                 modifier = Modifier
@@ -46,7 +51,7 @@ fun Component_tDialogBox(heading:String?=null,pointsList:List<String>?=null,body
                         text = heading,
                         modifier = Modifier
                             .wrapContentSize()
-                            .padding(top=10.dp,start=8.dp,end=4.dp),  // Space between title and content
+                            .padding(top = 10.dp, start = 8.dp, end = 4.dp),  // Space between title and content
                         textAlign = TextAlign.Justify,
                         color = Color.Red,
                         fontWeight = FontWeight.Bold,
@@ -72,12 +77,15 @@ fun Component_tDialogBox(heading:String?=null,pointsList:List<String>?=null,body
                         color = Color.Black,
                         modifier = Modifier
                             .fillMaxWidth() // Ensure the text takes up the full width
-                            .padding(start=10.dp,end=10.dp),
+                            .padding(start = 10.dp, end = 10.dp),
                         textAlign = TextAlign.Justify,  // Align text to the start
                         style = MaterialTheme.typography.bodyMedium,  // Apply body text style
                     )
                 }
+                if(composable!=null) {
+                    Spacer(Modifier.height(3.dp))
+                    composable()
+                }
             }
         }
-    }
 }

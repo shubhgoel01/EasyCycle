@@ -1,0 +1,20 @@
+
+While managing the schedule in a bicycle rental system, we aim to handle the following schedule states:
+
+Booked: The schedule is booked in advance but hasn't started yet.
+Ongoing: The schedule is currently active.
+Overtime: The schedule has exceeded the estimated time, but the cycle hasn't been returned.
+The system should automatically transition between these states, handle the concept of 'estimated schedule time', expand the schedule if
+necessary, calculate extra fare accordingly, and provide the ability to book cycles in advance.
+
+We need to show and switch between these states which acn be done in multiple alternatives -
+    1. System time based - We fetch the schedule start time and when user opens the application, we compare the current time with start time
+       and end time, and update the state accordingly.
+        Problems : Depends on user activity (Of opening the application)
+                   Require to continuously observe the system time, which is in-efficient with respect to application design.
+
+    2. Server Side - Server continuously check for the cycle state and compare current time with start time and end time and changes the
+       state accordingly.
+        Problems : Too many unnecessary network calls.
+    3. Work manager (Currently used) : Schedule a work manager with a calculated delay to check if the schedule if still active, if yes
+       then compare ths current time with start time and end time and perform other operations accordingly.

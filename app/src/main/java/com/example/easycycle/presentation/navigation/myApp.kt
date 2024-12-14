@@ -4,7 +4,6 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.FabPosition
 import androidx.compose.material.Scaffold
 
 import androidx.compose.material3.SnackbarHostState
@@ -28,14 +27,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.easycycle.data.Enum.ScheduleState
-import com.example.easycycle.data.model.Cycle
 import com.example.easycycle.data.model.Schedule
 import com.example.easycycle.data.model.ScheduleStatus
 import com.example.easycycle.data.model.SchedulesDataState
-import com.example.easycycle.data.model.Student
 import com.example.easycycle.data.model.StudentDataState
-import com.example.easycycle.data.model.userDataState
-import com.example.easycycle.presentation.ui.BookingPage
+import com.example.easycycle.data.model.bookCycle
+import com.example.easycycle.presentation.ui.AllCyclesScreen
+import com.example.easycycle.presentation.ui.BookingScreen
 import com.example.easycycle.presentation.ui.LoadingPage
 import com.example.easycycle.presentation.ui.SignInScreen
 import com.example.easycycle.presentation.ui.components.BookingFAB
@@ -47,9 +45,6 @@ import com.example.easycycle.presentation.viewmodel.AdminViewModel
 import com.example.easycycle.presentation.viewmodel.CycleViewModel
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
 import com.example.easycycle.presentation.viewmodel.UserViewModel
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -60,19 +55,10 @@ fun myApp(
     sharedViewModel: SharedViewModel = hiltViewModel(),
     cycleViewModel: CycleViewModel = hiltViewModel()
 ) {
-/*
-    SimpleTimeInputDialog(
-        onConfirm = { hour, minute ->
-            println("Selected time: $hour:$minute")
-        },
-        onDismiss = {
-            println("Dialog dismissed")
-        }
-    )
 
- */
-    //BookingPage(true,false)
-    //cycleViewModel.addCycle(Cycle(cycleId = "2"))
+    //AllCyclesScreen(cycleViewModel,sharedViewModel)
+    //BookingScreen(true,false,userViewModel,cycleViewModel)
+    //cycleViewModel.addCycle(Cycle(cycleId = "1", booked = false))
     //sharedViewModel.signOut()
 
     val scaffoldState= rememberScaffoldState()
@@ -92,7 +78,13 @@ fun myApp(
 
     var fabExpanded by remember { mutableStateOf(false) }
     val onFabClick = {
-        fabExpanded = !fabExpanded
+        Log.d("My App","Floating Action Button clicked")
+        if(sharedViewModel.reservedCycleUid.value == null)
+            fabExpanded = !fabExpanded
+        else {
+            Log.d("My App","Continuing Booking")
+            navController.navigate(Routes.BookingScreen.createRoute(false,true))
+        }
     }
     val onOptionClick: (String) -> Unit = { value ->
         when(value){
@@ -106,6 +98,7 @@ fun myApp(
                 navController.navigate(Routes.BookingScreen.createRoute(true,false))
             }
         }
+        fabExpanded = false
     }
     val onFabClick2 = {
 
@@ -143,7 +136,7 @@ fun myApp(
                     status = ScheduleState.BOOKED,
                 )
             )
-            Log.d("Schedule","Creating New Schedule")
+            //Log.d("Schedule","Creating New Schedule")
             //userViewModel.createSchedule(user.value!!.uid,tempSchedule)
         }
     }
@@ -175,6 +168,25 @@ fun myApp(
                         error = false
                     ))
                 }
+                //Checking the userTimer
+                if( userDataState.value.user.timerStartTime!=null && userDataState.value.user.timerStartTime!! + 5*60*1000 > System.currentTimeMillis()) {
+                    Log.d("myApp","Inside If")
+                    if(userDataState.value.user.cycleId != ""){
+                        sharedViewModel.updateReservedCycleUid(userDataState.value.user.cycleId)
+                        Log.d("myApp","calling startTimer")
+                        sharedViewModel.startTimer(userDataState.value.user.timerStartTime!! + 5 * 60 * 1000 - System.currentTimeMillis()){
+                            cycleViewModel.updateReserveAvailableCycleState(bookCycle(
+                                isLoading = false,
+                                cycle = null
+                            ))
+                        }
+                    }
+                    else{
+                        Log.d("myApp","user.timerStartTime is set but user.cycleUid is empty")
+                    }
+                }
+                else
+                    Log.d("Timer","timerStartTime is null or completed")
             }
         }
     }
@@ -194,9 +206,14 @@ fun myApp(
 
     Scaffold(
         snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
+            SnackbarHost(
+                hostState = snackbarHostState,
+                //modifier = Modifier.align(Alignment.TopCenter)
+            )
         },
-        topBar = {ViewTopAppBar("EasyCycle",scope,scaffoldState)},
+        topBar = {
+            ViewTopAppBar("EasyCycle",scope,scaffoldState, sharedViewModel = sharedViewModel)
+        },
         drawerContent = {
             drawerContent(scope,scaffoldState,navController)
         },
@@ -215,7 +232,7 @@ fun myApp(
                 }
             }
             composable(Routes.UserHome.route) {
-                homeScreen(studentDataState.value.student,navController,userViewModel,sharedViewModel)
+                homeScreen(studentDataState.value.student,navController,userViewModel,sharedViewModel,snackbarHostState)
             }
             composable(Routes.ErrorScreen.route) {
                 errorPage("Please pass the parameter in the MYAPP")
@@ -229,13 +246,18 @@ fun myApp(
                     navArgument("rentNow") { type = NavType.BoolType },
                     navArgument("rentLater") { type = NavType.BoolType }
             )) {backStackEntry->
-                val rentNow= backStackEntry.arguments?.getBoolean("rentNow") ?: true
-                val rentLater = backStackEntry.arguments?.getBoolean("rentLater") ?: false
-                BookingPage(rentNow = rentNow , rentLater = rentLater)
+                val rentNow= backStackEntry.arguments?.getBoolean("rentNow") ?: false
+                val rentLater = backStackEntry.arguments?.getBoolean("rentLater") ?: true
+                BookingScreen(rentNow = rentNow , rentLater = rentLater,sharedViewModel,cycleViewModel,snackbarHostState, navController)
+            }
+            composable(Routes.AllCycleScreen.route) {
+                AllCyclesScreen(cycleViewModel,sharedViewModel,navController){
+                    //TODO
+                }
             }
         }
     }
-}
+ }
 
 sealed class Routes(val route: String) {
     object UserHome : Routes("UserHome")
@@ -245,4 +267,7 @@ sealed class Routes(val route: String) {
     object BookingScreen : Routes("BookingScreen/{rentNow}/{rentLater}"){
         fun createRoute(rentNow: Boolean, rentLater: Boolean) = "BookingScreen/$rentNow/$rentLater"
     }
+    object AllCycleScreen : Routes("AllCycleScreen")
 }
+
+

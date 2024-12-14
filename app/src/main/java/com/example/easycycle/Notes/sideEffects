@@ -1,0 +1,76 @@
+A side-effect is a change to the state of the app that happens outside the scope of a composable function
+
+"sideEffect Api" - An effect is a composable function that doesn't emit UI and causes side effects to run when a composition completes.
+
+
+"LaunchEffect" -
+    LaunchedEffect is called again when the key parameter changes or when the Composable is recomposed as part of a new composition.
+    LaunchedEffect(key1, key2, ...) runs every time any of the provided key values changes.
+    If the Composable is removed from the composition (e.g., navigating away or hiding it) and then re-added (e.g., navigating back or
+    showing it again), LaunchedEffect will be re-launched.
+
+    First visit to TimerScreen: The LaunchedEffect is triggered.
+    Navigate away (to another screen): The LaunchedEffect coroutine is cancelled.
+    Navigate back to TimerScreen: The LaunchedEffect is triggered again.
+
+To Avoid Re-triggering on Navigation Back -
+    If you want to ensure that LaunchedEffect is not restarted when navigating back, you can tie it to a stable key value like define a
+    state value in viewModel of type boolean and check if the value is set false, then only perform the operation, this will ensure
+    that the launchedEffect is evaluated ony once when it is composed for the first time.
+
+    val isFirst = viewModel.isFirst.observeAsState()
+    LaunchedEffect(key1) {
+        if(isFirst == true)
+        {
+            //Perform operation
+            viewModel.isFirst = false
+        }
+    }
+
+"DisposableEffect" -
+     For side effects that need to be cleaned up after the keys change or if the composable leaves the Composition, use DisposableEffect.
+     If the DisposableEffect keys change, the composable needs to dispose (do the cleanup for) its current effect, and reset by calling
+     the effect again.
+
+     DisposableEffect is used to perform side effects that should be cleaned up or disposed of when the key associated with the effect
+     changes or when the composable is removed from the composition.
+
+     DisposableEffect is used when
+     1. You want to perform some side effect, like starting a process (e.g., starting a timer, opening a network connection, or subscribing
+     to a service).
+     2. You need to clean up that side effect when the composable is no longer needed, or when some condition changes (i.e., when the key
+     changes).
+
+     "How It Works":
+     1. When the effect is launched, it will run some code (like starting a timer, network request, etc.).
+     2. When the key changes or the composable is removed from the screen, the effect will trigger the disposal code (e.g., stopping the
+     timer, closing the network connection, etc.).
+
+
+
+     WARNING : A DisposableEffect must include an onDispose clause as the final statement in its block of code. Otherwise, the IDE
+     displays a build-time error.
+     Note: Having an empty block in onDispose is not a good practice. Always reconsider to see if there's an effect that fits your use
+     case better.
+
+
+
+
+"LaunchedEffect V/S DisposableEffect"
+    1. LaunchedEffect is used to trigger side effects that should only be executed once when the key (a specified dependency) changes.
+       It runs the side effect code in a coroutine scope, allowing asynchronous work without blocking the UI.
+    2. This is useful for operations like making a network request, performing disk I/O, or any task that should be triggered when a
+       specific value or dependency changes.
+    3. The side effect is launched in a coroutine and is independent of the Composable function’s recomposition.
+
+
+    1. DisposableEffect is used to manage resources that need to be acquired and released when a Composable is created and destroyed
+       (disposed).
+    2. The effect code inside DisposableEffect runs when the Composable is first recomposed, and when the key (dependency) changes, it
+       will dispose of the previous resource before running the effect code again.
+    3. This is useful for tasks like acquiring and releasing resources, such as registering and unregistering observers or listeners.
+    4. The side effect is executed every time the Composable is recomposed and is subject to recomposition.
+
+
+
+"RememberUpdatedState"

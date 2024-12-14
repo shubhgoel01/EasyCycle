@@ -28,6 +28,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,6 +55,7 @@ import com.example.easycycle.calculateTimeElapsed
 import com.example.easycycle.data.Enum.ScheduleState
 import com.example.easycycle.data.model.Schedule
 import com.example.easycycle.data.model.SchedulesDataState
+import com.example.easycycle.presentation.ui.components.ComponentSnackbar
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
 import com.example.easycycle.presentation.viewmodel.UserViewModel
 import java.time.Instant
@@ -67,8 +69,10 @@ fun homeScreen(
     student : Student,
     navController: NavController,
     userViewModel: UserViewModel,
-    sharedViewModel: SharedViewModel
+    sharedViewModel: SharedViewModel,
+    snackbarHostState: SnackbarHostState
 ) {
+
     val user = sharedViewModel.currUser.collectAsState()
 
     val schedulesDataState = userViewModel.scheduleDataState.collectAsState()

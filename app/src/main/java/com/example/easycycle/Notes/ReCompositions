@@ -1,0 +1,49 @@
+@Composable
+fun ClickCounter(clicks: Int, onClick: () -> Unit) {
+    Button(onClick = onClick) {
+        Text("I've been clicked $clicks times")
+    }
+}
+
+
+Every time the button is clicked, the caller updates the value of clicks. Compose calls the lambda with the Text function again to show
+the new value; this process is called recomposition. Other functions that don't depend on the value are not recomposed.
+
+Recomposing the entire UI tree can be computationally expensive, which uses computing power and battery life. Compose solves this problem
+with this intelligent recomposition.
+
+Recomposition is the process of calling your composable functions again when inputs change. This happens when the function's inputs change.
+When Compose recomposes based on new inputs, it only calls the functions or lambdas that might have changed, and skips the rest. By
+skipping all functions or lambdas that don't have changed parameters, Compose can recompose efficiently.
+
+Never depend on side-effects from executing composable functions, since a function's recomposition may be skipped. If you do, users may
+experience strange and unpredictable behavior in your app. A side-effect is any change that is visible to the rest of your app.
+For example, these actions are all dangerous side-effects:
+
+    1.Writing to a property of a shared object
+    2.Updating an observable in ViewModel
+    3.Updating shared preferences
+
+"Examples of Dangerous Side-Effects"
+    1. Writing to a property of a shared object:
+
+        var counter = 0
+        @Composable
+        fun DangerousComposable() {
+            counter++  // This is a side-effect
+        }
+    Every recomposition will increment counter, which may produce inconsistent results if recompositions are skipped or run multiple
+    times.
+
+    2. Updating an observable in a ViewModel:
+
+        @Composable
+        fun DangerousViewModelUpdate(viewModel: MyViewModel) {
+            viewModel.updateState()  // If skipped, the state update will not occur.
+        }
+
+"Best Practices to Avoid Side-Effects" -
+    Use side-effect APIs provided by Jetpack Compose to perform actions that are outside the scope of a composable:
+    1. LaunchedEffect - For executing logic that should run when a composable enters the composition.
+    2. Remember - To persist a value across recompositions or viewModel.
+    3. DisposableEffect - For executing logic that should run when a composable leaves (navigates away) the composition.

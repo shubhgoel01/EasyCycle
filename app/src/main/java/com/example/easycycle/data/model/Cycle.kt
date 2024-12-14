@@ -1,6 +1,7 @@
 package com.example.easycycle.data.model
 
 import com.example.easycycle.data.Enum.Location
+import com.google.firebase.database.PropertyName
 import java.io.Serializable
 
 data class Cycle(
@@ -10,8 +11,8 @@ data class Cycle(
     var cycleStatus: CycleStatus = CycleStatus(),
     var location: Location =Location.NILGIRI,
     var underProcess : Boolean = false,
-    var isBooked:Boolean=false,
-) : Serializable
+    var booked:Boolean=false,
+) //: Serializable
 
 data class CycleStatus(
     var scheduleId:String="",
@@ -37,8 +38,9 @@ data class allCycleDataState(
     val list: List<Cycle> = listOf()
 )
 
-data class cycleUpdateState(
+data class bookCycle(
     var isLoading:Boolean = true,
     var error:Boolean = false,
     var errorMessage:String = "",
+    var cycle:Cycle? = null
 )

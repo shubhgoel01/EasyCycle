@@ -9,6 +9,8 @@ import com.example.easycycle.data.remote.CycleFirebaseService
 import com.example.easycycle.data.remote.SharedFirebaseService
 import com.example.easycycle.data.remote.StudentFirebaseService
 import com.example.easycycle.domain.usecases.AdminUseCases
+import com.example.easycycle.domain.usecases.CycleUseCases
+import com.example.easycycle.domain.usecases.SharedUseCase
 import com.example.easycycle.domain.usecases.StudentUseCases
 import com.example.easycycle.presentation.viewmodel.UserViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -46,6 +48,16 @@ object AppModule {
         context: Context
     ): StudentUseCases {
         return StudentUseCases(studentDatabase, sharedDatabase, context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSharedUseCase(
+        cycleUseCase: CycleUseCases,
+        studentUseCases: StudentUseCases,
+        auth: FirebaseAuth
+    ): SharedUseCase {
+        return SharedUseCase(cycleUseCase, studentUseCases,auth)
     }
 
     @Provides

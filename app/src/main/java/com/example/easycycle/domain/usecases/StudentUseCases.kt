@@ -145,4 +145,14 @@ class StudentUseCases @Inject constructor(
         studentDatabase.scheduleStartCheck(userUid,info.first,info.second,context)
         onComplete()
     }
+
+    suspend fun startTimer(userUid:String,cycleUid:String){
+        try {
+            Log.d("startTimer","Callong function")
+            studentDatabase.startTimer(userUid,cycleUid)
+        }catch (e:Exception){
+            Log.d("startTimer StudentUseCase","Error Occurred $e")
+            throw e
+        }
+    }
 }

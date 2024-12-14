@@ -1,0 +1,32 @@
+As decided to maintain the resources ( cycles ) and acc. to the selected option of 'reserve-first-booking' for booking a cycle,
+    its important to ensure that user should complete the booking within the time period otherwise it may be a cause that user just simply
+    initiate the booking and cycle gets reserved for that user, and user leaves the process in between, thus causing the cycle to be booked
+    for indefinite time thus wasting the resource, to tackle and handle this we are using a timer that will start once tht system finds some
+    available cycle and reserve for that user, the user is required to book the cycle along with payment within that timer otherwise the
+    cycle will be released and user requires to again start the process.
+
+    For this we are using transactions, cloud functions.
+
+"Transactions" -
+    There may be case when two user tries to book the ride and system chooses the same cycle hence may cause race condition like same cycle
+    is booked to two different users, to ensure that one cycle can be processed or booked by only one user at a time we use transactions.
+    For this we have introduced two new variables namely 'booked' to efficiently check if the particular cycle is booked or not and
+    'underProcess' to efficiently check if the current cycle is under process or is reserved by some user (meaning some user may be trying
+    to book this cycle ), now to reserve the cycle for the current user, two main operations rae needed to be done -
+        1. Check if current cycle if under process or not.
+        2. If not then set this cycle as under process (Reserve this cycle for the current user)
+    These two steps need to be done atomically to avoid race conditions.
+
+"Cloud Functions" -
+    Once the cycle is reserved for the user, there may be some situations -
+        1. User successfully books the cycle.
+        2. User cancels the booking process and pressing back button or cancel.
+        3. User minimizes the app for indefinite time.
+        4. User kills the process without properly cancelling the already initiated booking process.
+
+    in 2,3 and 4 case, the cycle remains reserved for that user means not available for other users, hence needs to be released,
+    In case of 2 : we can say that we can explicitly create a suspend function that will be called if user navigates or cancels the process
+    which will set the reserved cycle to available(release the cycle), but this cannot be done in case of 3 and 4, we want even if user is
+    not connected to the internet or user kills the process or anything, after a particular time the cycle should be released.
+    Using 'WORK MANAGER' is not the correct approach, as it cannot be completed if user is not connected to internet, hence using 'cloud
+    functions' become ideal choice for this.

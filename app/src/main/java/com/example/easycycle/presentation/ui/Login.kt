@@ -74,9 +74,9 @@ fun SignInScreen( snackbarHostState: SnackbarHostState , sharedViewModel: Shared
     }
 
     if(visible)
-        Component_tDialogBox(text1,textItems){
+        Component_tDialogBox(text1,textItems, onDismissRequest = {
             visible=false
-        }
+        })
 
     Box(
         modifier = login_box_modifier

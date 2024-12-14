@@ -1,5 +1,7 @@
 package com.example.easycycle.data.model
 
+import com.google.firebase.Timestamp
+
 data class User(
     var registrationNumber:String="",
     var paymentHistory: MutableList<String> = mutableListOf("Default"),
@@ -11,7 +13,9 @@ data class User(
     var account_Enabled:Boolean=true,
     var stayLoggedIn:Boolean = true,
     var scheduleId:String = "",
-    var prevBalance : Double = 0.toDouble()
+    var prevBalance : Int = 0,
+    var timerStartTime : Long? = null,
+    var cycleId:String = ""
 )
 data class UserEngagement(
     var totalCompletedRides: Int = 0,

@@ -13,9 +13,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun Component_Button(title:String,onClick:()->Unit,modifier:Modifier=Modifier) {
     Button(
-        onClick = {
-            onClick()
-        },
+        onClick = onClick,
         colors= ButtonDefaults.buttonColors(
             containerColor = Color.White,
             contentColor = Color.Black

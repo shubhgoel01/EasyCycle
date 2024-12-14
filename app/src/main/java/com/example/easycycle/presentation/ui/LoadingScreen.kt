@@ -13,19 +13,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LoadingPage(Messgae:String = "") {
+fun LoadingPage(message:String = "",modifier : Modifier = Modifier) {
     // Display loading circle
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White),
-        contentAlignment = Alignment.Center
-    ) {
         CircularProgressIndicator(
-            modifier = Modifier.size(64.dp),
+            modifier = modifier,
             color = Color.White,  // Set the circle color to white
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
             strokeWidth = 6.dp
         )
-    }
 }

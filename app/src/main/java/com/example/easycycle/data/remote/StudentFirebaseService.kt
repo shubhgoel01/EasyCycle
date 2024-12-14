@@ -28,6 +28,7 @@ import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
+import okhttp3.internal.wait
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -41,6 +42,7 @@ class StudentFirebaseService @Inject constructor(
     private var database = firebaseDatabase.reference
     private val studentsRef=database.child("Students")
     private val userRef = database.child("User")
+
 
     suspend fun addStudent(student:Student)
     {
@@ -408,6 +410,20 @@ class StudentFirebaseService @Inject constructor(
         }
         catch(e:Exception){
             Log.d("createSchedule","Error occurred when creating a new Schedule $e")
+            throw e
+        }
+    }
+
+    suspend fun startTimer(userUid:String,cycleUid:String){
+        try {
+            val snapshot = userRef.child(userUid)
+            snapshot.child("timerStartTime").setValue( System.currentTimeMillis()).await()
+            Log.d("startTimer","Timer set successfully")
+            snapshot.child("cycleId").setValue(cycleUid).await()
+            Log.d("startTimer","CycleUid set successfully in user")
+        }
+        catch (e:Exception){
+            Log.d("startTimer","Error occurred while updating the timer in user")
             throw e
         }
     }
