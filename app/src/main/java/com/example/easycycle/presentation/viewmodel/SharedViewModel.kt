@@ -56,10 +56,6 @@ class SharedViewModel @Inject constructor(
     val showLiveIcon: StateFlow<Boolean> = _showLiveIcon
     private val _showLiveIconMessage: MutableStateFlow<String> = MutableStateFlow("")
     val showLiveIconMessage: StateFlow<String> = _showLiveIconMessage
-//    fun updateShowLiveIcon(value:Boolean){
-//        _showLiveIcon.value = value
-//    }
-
 
 
     private val _showDialog1 = MutableStateFlow(false) // used by booking page when timer is expired

@@ -3,7 +3,6 @@ package com.example.easycycle.data.remote
 import android.util.Log
 import com.example.easycycle.data.Enum.Location
 import com.example.easycycle.data.model.Cycle
-import com.example.easycycle.data.model.allCycleDataState
 import com.example.easycycle.data.model.bookCycle
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -24,78 +23,7 @@ class CycleFirebaseService @Inject constructor(
     private var database = firebaseDatabase.reference
     private val cyclesRef=database.child("Cycles")
 
-    private var databaseListener: ValueEventListener? = null
-
-    /*
-    suspend fun getAllCyclesAndAddEventListener(location: Location): List<Cycle> {
-        val cycleList = mutableListOf<Cycle>()
-        var allCycleDataState : allCycleDataState = allCycleDataState()
-
-        val query = if (location == Location.ALL) {
-            cyclesRef // No filtering, fetch all cycles
-        } else {
-            cyclesRef.orderByChild("location").equalTo(location.name) // Filter by location
-        }
-
-        try {
-            Log.d("getAllCycles","Now Fetching allCycleData")
-            val snapshot = query.get().await()
-            if (snapshot.exists()) {
-                cycleList.clear()
-                for (childSnapshot in snapshot.children) {
-                    val cycle = childSnapshot.getValue(Cycle::class.java)
-                    if (cycle != null) cycleList.add(cycle)
-                }
-            }
-            else{
-                Log.d("getAllCycles","Snapshot does not exist")
-                throw Exception("Snapshot does not exist")
-            }
-        }
-        catch (e:Exception){
-            Log.d("getAllCycle","Error Occurred when fetching allCyclesData")
-            throw Exception("Error Occurred when fetching allCyclesData $e")
-        }
-
-            query.addValueEventListener(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    cycleList.clear() // Clear previous data before adding updated values
-                    for (childSnapshot in snapshot.children) {
-                        val cycle = childSnapshot.getValue(Cycle::class.java)
-                        if (cycle != null) cycleList.add(cycle)
-                    }
-                }
-
-                override fun onCancelled(error: DatabaseError) {
-                    Log.e("CycleFirebaseService", "Error fetching cycles: ${error.message}")
-                    //TODO Handle using callBack Function to update the allCycleDataState
-                }
-            })
-        return cycleList
-    }
-
-    fun getAllCyclesRemoveEventListener(location: Location) {
-        try {
-            val query = if (location == Location.ALL) {
-                cyclesRef // No filtering, fetch all cycles
-            } else {
-                cyclesRef.orderByChild("location").equalTo(location.name) // Filter by location
-            }
-
-            // Ensure the listener is non-null before attempting to remove it
-            databaseListener?.let { listener ->
-                query.removeEventListener(listener)
-                Log.d("removeEventListener", "Listener removed successfully for location: $location")
-            } ?: run {
-                Log.w("removeEventListener", "No listener to remove for location: $location")
-            }
-        } catch (e: Exception) {
-            Log.e("removeEventListener", "Error occurred: ${e.message}")
-            throw e // Optionally re-throw or handle the error here
-        }
-    }
-
-     */
+    private var allCycleDatabaseListener: ValueEventListener? = null
 
     private val cycleListFlow = MutableStateFlow<List<Cycle>>(emptyList())
     suspend fun getAllCyclesAndAddEventListener(location: Location): StateFlow<List<Cycle>> {
@@ -118,7 +46,7 @@ class CycleFirebaseService @Inject constructor(
         }
 
         query.addValueEventListener(listener)
-        databaseListener = listener // Assign the listener to `databaseListener`
+        allCycleDatabaseListener = listener // Assign the listener to `databaseListener`
 
         return cycleListFlow
     }
@@ -132,10 +60,10 @@ class CycleFirebaseService @Inject constructor(
                 cyclesRef.orderByChild("location").equalTo(location.name) // Filter by location
             }
 
-            databaseListener?.let { listener ->
+            allCycleDatabaseListener?.let { listener ->
                 query.removeEventListener(listener) // Remove the previously assigned listener
                 Log.d("removeEventListener", "Listener removed successfully for location: $location")
-                databaseListener = null // Reset the listener to avoid reuse
+                allCycleDatabaseListener = null // Reset the listener to avoid reuse
             } ?: run {
                 Log.w("removeEventListener", "No listener to remove for location: $location")
             }
@@ -242,6 +170,44 @@ class CycleFirebaseService @Inject constructor(
                     continuation.resume(resultState)
                 }
             })
+        }
+    }
+
+    suspend fun bookSchedule(scheduleUid:String,cycleUid:String,estimatedNextAvailableTime:Long){
+        try {
+            val snapshot = cyclesRef.child(cycleUid)
+            snapshot.child("booked").setValue(true).await()
+            snapshot.child("cycleStatus").child("estimatedNextAvailableTime").setValue(estimatedNextAvailableTime).await()
+            snapshot.child("cycleStatus").child("scheduleId").setValue(scheduleUid).await()
+        }
+        catch (e:Exception){
+            Log.e("bookSchedule cycleFirebaseService","Error Occurred")
+            throw e
+        }
+    }
+
+    suspend fun updateNextAvailableTime(cycleUid:String,updatedTime:Long){
+        try {
+            Log.d("CycleFirebaseService","Entered updateAvailableTime")
+            val snapshot = cyclesRef.child(cycleUid)
+            snapshot.child("cycleStatus").child("estimatedNextAvailableTime").setValue(updatedTime).await()
+            Log.d("updateNextAvailableTime","Successfully updated next available time")
+        }
+        catch (e:Exception){
+            Log.d("CycleFirebaseService","updateAvailableTime Error Occurred when updating availableTIme")
+            throw e
+        }
+    }
+
+    suspend fun updateCycleBooked(cycleUid: String,value:Boolean){
+        try {
+            val snapshot = cyclesRef.child(cycleUid)
+            snapshot.child("booked").setValue(value).await()
+            Log.d("updateCycleBooked","CycleFireBaseService Successfully updated",)
+        }
+        catch (e:Exception){
+            Log.e("updateCycleBooked","cycleFirebaseService Error Occurred")
+            throw e
         }
     }
 }

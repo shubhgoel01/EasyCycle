@@ -45,9 +45,10 @@ object AppModule {
     fun provideStudentUseCases(
         studentDatabase: StudentFirebaseService,
         sharedDatabase: SharedFirebaseService,
+        cycleDatabase: CycleFirebaseService,
         context: Context
     ): StudentUseCases {
-        return StudentUseCases(studentDatabase, sharedDatabase, context)
+        return StudentUseCases(studentDatabase, sharedDatabase,cycleDatabase, context)
     }
 
     @Provides

@@ -1,5 +1,6 @@
 package com.example.easycycle.presentation.ui
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LoadingPage(message:String = "",modifier : Modifier = Modifier) {
     // Display loading circle
+    Log.d("LoadingScreen","Called")
         CircularProgressIndicator(
             modifier = modifier,
             color = Color.White,  // Set the circle color to white

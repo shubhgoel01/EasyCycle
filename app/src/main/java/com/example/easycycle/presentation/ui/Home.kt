@@ -1,16 +1,15 @@
 package com.example.easycycle.presentation.ui
 
+import android.annotation.SuppressLint
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,7 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,6 +30,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -54,14 +53,18 @@ import com.example.easycycle.R
 import com.example.easycycle.calculateTimeElapsed
 import com.example.easycycle.data.Enum.ScheduleState
 import com.example.easycycle.data.model.Schedule
-import com.example.easycycle.data.model.SchedulesDataState
-import com.example.easycycle.presentation.ui.components.ComponentSnackbar
+import com.example.easycycle.data.model.FetchSchedulesDataState
+import com.example.easycycle.formatTimestamp
+import com.example.easycycle.presentation.navigation.Routes
+import com.example.easycycle.presentation.ui.components.Component_tDialogBox
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
 import com.example.easycycle.presentation.viewmodel.UserViewModel
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import kotlin.math.ceil
+import com.google.gson.Gson
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -72,10 +75,12 @@ fun homeScreen(
     sharedViewModel: SharedViewModel,
     snackbarHostState: SnackbarHostState
 ) {
-
     val user = sharedViewModel.currUser.collectAsState()
 
     val schedulesDataState = userViewModel.scheduleDataState.collectAsState()
+    LaunchedEffect(schedulesDataState.value){
+        //DO Nothing Used to update the state during navigation
+    }
 
     Log.d("Home","Entered Home Screen")
     val imageUrl = student.imageURL.ifEmpty { "default" }
@@ -139,10 +144,11 @@ fun profile(student: Student,imageUrl:String) {
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun Schedules(
-    schedulesDataState : SchedulesDataState,
+    fetchSchedulesDataState : FetchSchedulesDataState,
     navController: NavController,
     userViewModel: UserViewModel
 ) {
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -157,14 +163,21 @@ fun Schedules(
                 .padding(8.dp)
         ){
             when {
-                schedulesDataState.isLoading -> {
-                    LoadingPage()
+                fetchSchedulesDataState.isLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.5f)), // Semi-transparent overlay
+                        contentAlignment = Alignment.Center
+                    ) {
+                        LoadingPage() // Loading indicator
+                    }
                 }
 
-                schedulesDataState.error -> {
-                    error(schedulesDataState.errorMessage)
+                fetchSchedulesDataState.error -> {
+                    error(fetchSchedulesDataState.errorMessage)
                 }
-                schedulesDataState.schedule == null -> {
+                fetchSchedulesDataState.schedule == null -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -187,13 +200,14 @@ fun Schedules(
                     }
                 }
                 else->{
-                    ScheduleScreen(schedulesDataState.schedule!!,userViewModel,navController)
+                    ScheduleScreen(fetchSchedulesDataState.schedule!!,userViewModel,navController)
                 }
             }
         }
     }
 }
 
+@SuppressLint("SuspiciousIndentation")
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ScheduleScreen(
@@ -201,14 +215,48 @@ fun ScheduleScreen(
     userViewModel: UserViewModel,
     navController: NavController
 ) {
+    var showDialog1 by remember { mutableStateOf(false) }
+    if(showDialog1){
+        Component_tDialogBox(
+            heading = "Fare Information",
+            body = "When the cycle is not returned according to the scheduled time, the ride is automatically extended, " +
+                    "and the fare will be charged at a standard rate of \$2 per hour, with no additional penalty.",
+            onDismissRequest = { showDialog1 = false }
+        )
+    }
+
+    var elapsedTime by remember { mutableStateOf("") }
+    DisposableEffect(schedule.startTime) {
+        var job: Job? = null
+        if(schedule.status.status.equals(ScheduleState.OVERTIME))
+        {
+            elapsedTime = calculateTimeElapsed(schedule.startTime, schedule.estimateTime)
+            job = CoroutineScope(Dispatchers.Main).launch {
+                while (true) {
+                    delay(60*1000)  // Update every minute
+                    elapsedTime = calculateTimeElapsed(schedule.startTime, schedule.estimateTime)
+                }
+            }
+        }
+        onDispose {
+            if(job!=null)
+                job.cancel()  // Cancel the coroutine when leaving the screen
+        }
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
             .clickable {
-                // TODO
-                navController.currentBackStackEntry?.savedStateHandle?.set("schedule", schedule)
-                navController.navigate("schedule_detail")
+                // Because schedule is of userDefinedDataType :Schedule hence need to be serialized to String
+                navController.navigate(
+                    Routes.EachScheduleDetailScreen.createRoute(
+                        Gson().toJson(
+                            schedule
+                        )
+                    )
+                )
             },
         tonalElevation = 4.dp,
         shape = RoundedCornerShape(8.dp),
@@ -221,7 +269,7 @@ fun ScheduleScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Status color indicator
-            val statusColor = when (schedule.Status.status) {
+            val statusColor = when (schedule.status.status) {
                 ScheduleState.ONGOING -> Color.Green
                 ScheduleState.BOOKED -> Color.Blue
                 ScheduleState.OVERTIME -> Color.Red
@@ -244,7 +292,7 @@ fun ScheduleScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = when (schedule.Status.status) {
+                        text = when (schedule.status.status) {
                             ScheduleState.BOOKED -> "Booked Schedule"
                             ScheduleState.ONGOING -> "In Progress"
                             ScheduleState.OVERTIME -> "Extended Time"
@@ -255,10 +303,10 @@ fun ScheduleScreen(
                         color=statusColor,
                         modifier = Modifier.weight(1f) // Push IconButton to the end
                     )
-                    if (schedule.Status.status == ScheduleState.OVERTIME) {
+                    if (schedule.status.status == ScheduleState.OVERTIME) {
                         IconButton(
                             onClick = {
-                                // TODO
+                                showDialog1=true
                             },
                             modifier = Modifier.size(24.dp)
                         ) {
@@ -281,16 +329,11 @@ fun ScheduleScreen(
                 )
 
                 // Display information based on status
-                when (schedule.Status.status) {
+                when (schedule.status.status) {
                     ScheduleState.BOOKED -> {
                         // Show Start Time for Booked Status
                         Text(
-                            text = "Start Time: ${
-                                java.time.Instant.ofEpochMilli(schedule.startTime)
-                                    .atZone(java.time.ZoneId.systemDefault())
-                                    .toLocalDateTime()
-                                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                            }",
+                            text = "Start Time: ${formatTimestamp(schedule.startTime)}",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -303,12 +346,12 @@ fun ScheduleScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Time Elapsed: ${calculateTimeElapsed(schedule.startTime,schedule.estimateTime)}", // Function to calculate elapsed time
+                            text = "Time Elapsed: $elapsedTime",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Estimated Cost: ₹${userViewModel.extendedFare}",
+                            text = "Estimated Cost: ₹${userViewModel.extendedFare.value}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -336,136 +379,3 @@ fun ScheduleScreen(
 
 
 
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-fun eachScheduleDetailScreen(schedule: Schedule,
-                             //userViewModel: UserViewModel,
-                             navController: NavController
-) {
-    Log.d("eachScheduleDetailScreen", "Calling function")
-
-    var deleteScheduleStatus by remember { mutableStateOf(false) }
-
-    val imageUrl = "" // Replace with actual cycle image URL
-    val cycleId = "1" // Replace with actual cycle ID from your data model
-    val location = "NILGIRI" // Replace with actual location
-    val totalFare= "1"
-
-    Surface(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        tonalElevation = 4.dp,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp) // Adds spacing between items
-        ) {
-            // Display Cycle Image
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(imageUrl) // Placeholder image
-                    .placeholder(R.drawable.defaultdycle) // Placeholder image
-                    .error(R.drawable.defaultdycle) // Error image
-                    .build(),
-                contentDescription = "Cycle Image",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(12.dp)) // Rounds the corners of the image
-            )
-
-            // Display Cycle ID
-            Text(
-                text = "Cycle ID: $cycleId",
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Display Location
-
-            Text(
-                text = "Start Time: ${schedule.startTime}",
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = "Extra Time Stamp : ",
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = "Total Fare: $${totalFare}", // Placeholder for total fare
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Conditional Display for Status
-            when (schedule.Status.status) {
-                ScheduleState.ONGOING -> {
-                    Text(
-                        text = "In Progress",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Color.Green
-                    )
-                }
-                ScheduleState.OVERTIME -> {
-                    Text(
-                        text = "Overtime: Extra time added. No penalty.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Color.Red
-                    )
-                    IconButton(
-                        onClick = {
-                            // Navigate to overtime info
-
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Info",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-                else -> {
-
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Cancel/Delete Schedule Button
-            Button(
-                onClick = {
-                    deleteScheduleStatus = true
-                    // Handle schedule cancellation or deletion
-                    // TODO: Implement delete schedule or return cycle functionality
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    text = when (schedule.Status.status) {
-                        ScheduleState.BOOKED -> "Cancel Schedule"
-                        else -> "Return Cycle"
-                    }
-                )
-            }
-        }
-    }
-}

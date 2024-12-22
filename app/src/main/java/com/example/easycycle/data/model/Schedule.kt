@@ -11,7 +11,7 @@ data class Schedule(
     var estimateTime: Long = 0L,
     var scheduleUid: String = "",
     var paymentDetail : PaymentDetail = PaymentDetail(),
-    var Status: ScheduleStatus = ScheduleStatus(),
+    var status: ScheduleStatus = ScheduleStatus(),
     var startDestination: Location =Location.NILGIRI,       //For future
     var endDestination:Location=Location.NILGIRI,       //For future
 ) : Serializable
@@ -25,7 +25,7 @@ data class ScheduleStatus(
 
 data class Delay(
     var isDelay: Boolean = false,
-    var penalty: Double = 0.0,
+    var penalty: Long = 0L,
     var paymentId: String = ""
 )
 
@@ -41,7 +41,7 @@ data class BeforeTime(
 )
 
 
-data class SchedulesDataState(
+data class FetchSchedulesDataState(
     val isLoading: Boolean = true,
     val error: Boolean = false,
     var schedule:Schedule? = null,

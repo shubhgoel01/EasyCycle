@@ -103,8 +103,12 @@ dependencies {
     //WorkManager
     implementation("androidx.work:work-runtime-ktx:2.8.1")
 
+    //For Hilt integrated with workManager
     implementation ("androidx.hilt:hilt-work:1.0.0")
     kapt ("androidx.hilt:hilt-compiler:1.0.0")
+
+    //For serialization and de-serialization
+    implementation("com.google.code.gson:gson:2.10.1")
 
 }
 kapt {

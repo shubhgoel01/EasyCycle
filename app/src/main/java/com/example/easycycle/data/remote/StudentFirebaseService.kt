@@ -11,7 +11,6 @@ import androidx.work.workDataOf
 import com.example.easycycle.Worker.CycleStateWorker
 import com.example.easycycle.data.Enum.ScheduleState
 import com.example.easycycle.data.model.Schedule
-import com.example.easycycle.data.model.SchedulesDataState
 import com.example.easycycle.data.model.Student
 import com.example.easycycle.data.model.StudentDataState
 import com.example.easycycle.data.model.User
@@ -21,14 +20,11 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.database.ValueEventListener
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.ktx.storage
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
-import okhttp3.internal.wait
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -268,53 +264,73 @@ class StudentFirebaseService @Inject constructor(
     }
 
 
-    suspend fun fetchSchedule(scheduleId: String): SchedulesDataState {
-        Log.d("fetchSchedule", "Fetching schedule with ID: $scheduleId")
+    //TODO Add value event listener
+//    suspend fun fetchSchedule(scheduleId: String,onComplete:(Schedule?)->Unit) {
+//        Log.d("fetchSchedule", "Fetching schedule with ID: $scheduleId")
+//
+//        Log.d("Schedule","Entered scheduleId $scheduleId")
+//        val scheduleRef = database.child("Schedule").child(scheduleId)
+//
+//        try {
+//            val snapshot = scheduleRef.get().await()
+//            if (snapshot.exists()) {
+//                val schedule = snapshot.getValue(Schedule::class.java)
+//                onComplete(schedule)
+//            } else {
+//                Log.e("fetchSchedule","Student Firebase Service - Schedule not found with ID: $scheduleId")
+//                throw Exception("Schedule not found with ID: $scheduleId")
+//            }
+//        } catch (e: Exception) {
+//            Log.e("fetchSchedule", "Error fetching schedule with ID: $scheduleId", e)
+//            throw Exception("Error fetching schedule with ID: $scheduleId Error : $e")
+//        }
+//    }
 
-        Log.d("Schedule","Entered scheduleId $scheduleId")
+    private var scheduleDatabaseListener: ValueEventListener? = null
+    suspend fun fetchSchedule(scheduleId: String, onDataChange: (Schedule?) -> Unit) {
         val scheduleRef = database.child("Schedule").child(scheduleId)
 
-        return try {
-            val snapshot = scheduleRef.get().await()
-            if (snapshot.exists()) {
-                val schedule = snapshot.getValue(Schedule::class.java)
-                if (schedule != null) {
-                    Log.d("Schedule","Schedule data fetched successfully")
-                    Log.d("Fetched Scheduled Value",schedule.toString())
-                    SchedulesDataState(
-                        isLoading = false,
-                        error = false,
-                        schedule = schedule
-                    )
-
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (snapshot.exists()) {
+                    val schedule = snapshot.getValue(Schedule::class.java)
+                    Log.d("fetchScheduleAndAddListener", "Schedule updated: $schedule")
+                    onDataChange(schedule)
                 } else {
-                    Log.d("Schedule","Schedule data is null")
-                    SchedulesDataState(
-                        isLoading = false,
-                        error = true,
-                        errorMessage = "Schedule data is null"
-                    )
+                    Log.w("fetchScheduleAndAddListener", "Schedule not found with ID: $scheduleId")
+                    onDataChange(null)
                 }
-            } else {
-                SchedulesDataState(
-                    isLoading = false,
-                    error = true,
-                    errorMessage = "Schedule not found with ID: $scheduleId"
-                )
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("fetchScheduleAndAddListener", "Error fetching schedule with ID: $scheduleId. Error: ${error.message}")
+                onDataChange(null)
+            }
+        }
+
+        scheduleRef.addValueEventListener(listener)
+        scheduleDatabaseListener = listener // Assign the listener to manage it later
+    }
+
+    fun removeScheduleListener(scheduleId: String) {
+        try {
+            val scheduleRef = database.child("Schedule").child(scheduleId)
+
+            scheduleDatabaseListener?.let { listener ->
+                scheduleRef.removeEventListener(listener) // Remove the previously assigned listener
+                Log.d("removeScheduleListener", "Listener removed successfully for schedule ID: $scheduleId")
+                scheduleDatabaseListener = null // Reset the listener reference
+            } ?: run {
+                Log.w("removeScheduleListener", "No listener to remove for schedule ID: $scheduleId")
             }
         } catch (e: Exception) {
-            Log.e("fetchSchedule", "Error fetching schedule with ID: $scheduleId", e)
-            SchedulesDataState(
-                isLoading = false,
-                error = true,
-                errorMessage = "Error occurred: ${e.message}"
-            )
+            Log.e("removeScheduleListener", "Error occurred while removing listener: ${e.message}")
         }
     }
 
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun scheduleStartCheck(userUid:String, scheduleUid: String, startTime:Long, context: Context) {
+    fun scheduleStartCheck(userUid:String, scheduleUid: String, startTime:Long, context: Context, cycleUid:String) {
         val delayMillis =startTime - System.currentTimeMillis()
 
         val workRequest = OneTimeWorkRequestBuilder<CycleStateWorker>()
@@ -322,7 +338,8 @@ class StudentFirebaseService @Inject constructor(
                 workDataOf(
                     "scheduleUid" to scheduleUid,
                     "action" to "start",
-                    "userUid" to userUid
+                    "userUid" to userUid,
+                    "cycleUid" to cycleUid
                 )
             )
             .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
@@ -369,9 +386,10 @@ class StudentFirebaseService @Inject constructor(
         return Pair(StartTime,estimateTime)
     }
 
+    // Function to update the state of schedule called within worker eg. 'from booked to ongoing'
     suspend fun updateScheduleState(scheduleUid:String, newState: ScheduleState){
         val scheduleRef = database.child("Schedule").child(scheduleUid)
-        val scheduleStateRef = scheduleRef.child("Status").child("status")
+        val scheduleStateRef = scheduleRef.child("status").child("status")
         try {
             scheduleStateRef.setValue(newState).await()
             Log.d("Worker","Successfully updated schedule state")
@@ -398,12 +416,15 @@ class StudentFirebaseService @Inject constructor(
 
     suspend fun createSchedule(userUid:String, schedule:Schedule) : Pair<String,Long> {
         val scheduleRef = database.child("Schedule")
-        val userRef = userRef.child(userUid).child("scheduleId")
+        //val userRef = userRef.child(userUid).child("scheduleId")
         try {
             val scheduleUid = scheduleRef.push().key
+
             if(scheduleUid !=null){
+                schedule.scheduleUid = scheduleUid
                 scheduleRef.child(scheduleUid).setValue(schedule).await()
-                userRef.setValue(scheduleUid).await()
+                //userRef.setValue(scheduleUid).await()
+                Log.d("Schedule","Created Successfully")
                 return Pair(scheduleUid,schedule.startTime)
             }
             else throw Exception("Schedule Uid is null inside createSchedule")
@@ -427,4 +448,32 @@ class StudentFirebaseService @Inject constructor(
             throw e
         }
     }
+
+    //Function which is called when new schedule is created successfully, updates all the schedule related information in user node
+    suspend fun bookSchedule(userId:String,scheduleId:String){
+        try {
+            val snapshot = userRef.child(userId).child("scheduleId")
+            snapshot.setValue(scheduleId).await()
+            Log.d("bookSchedule studentFirebaseService","Successfully updated schedule related details")
+        }
+        catch (e:Exception){
+            Log.d("bookSchedule studentFirebaseService","error Occurred $e")
+            throw e
+        }
+    }
+
+    suspend fun updateUserScheduleId(userUid:String,updatedScheduleId:String){
+        try{
+            val ref = userRef.child(userUid)
+            val snapshot = ref.child("scheduleId")
+            snapshot.setValue(updatedScheduleId).await()
+            Log.d("updateUserScheduleId","StudentFirebaseService successfully updated")
+        }
+        catch (e:Exception){
+            Log.d("updateUserScheduleId","StudentFirebaseService successfully updated")
+            throw e
+        }
+    }
+
+
 }

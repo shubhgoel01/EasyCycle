@@ -6,21 +6,21 @@ import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import com.example.easycycle.data.model.Schedule
-import com.example.easycycle.data.model.SchedulesDataState
+import com.example.easycycle.data.model.FetchSchedulesDataState
 import com.example.easycycle.data.model.Student
 import com.example.easycycle.data.model.StudentDataState
 import com.example.easycycle.data.model.User
 import com.example.easycycle.data.model.userDataState
+import com.example.easycycle.data.remote.CycleFirebaseService
 import com.example.easycycle.data.remote.SharedFirebaseService
 import com.example.easycycle.data.remote.StudentFirebaseService
-import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
-import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 class StudentUseCases @Inject constructor(
     private val studentDatabase: StudentFirebaseService,
     private val sharedDatabase : SharedFirebaseService,
+    private val cycleDatabase : CycleFirebaseService,
     @ApplicationContext private val context: Context
 ) {
     suspend fun login (studentLoginData:Student,password:String,onComplete:()->Unit):Boolean
@@ -111,27 +111,37 @@ class StudentUseCases @Inject constructor(
 
 
 //Can be simplified I can directly pass schedule id in some cases like in myApp
-    suspend fun fetchSchedule(userUid: String, onComplete: (SchedulesDataState) -> Unit) {
+    suspend fun fetchSchedule(scheduleUid: String, onComplete: (FetchSchedulesDataState) -> Unit) {
         Log.d("studentUseCases", "Fetching Schedules Data")
 
         try {
-            val scheduleId = studentDatabase.fetchScheduleId(userUid)
-
-            if (scheduleId.isNullOrEmpty()) {
-                Log.d("Schedule","Successfully Updated ScheduleDataState")
-                onComplete(SchedulesDataState(
-                    isLoading = false,
-                    error = false,
-                    errorMessage = "No schedule found for the given user"
-                ))
-            } else {
-                onComplete(studentDatabase.fetchSchedule(scheduleId))
+            studentDatabase.fetchSchedule(scheduleUid){ schedule->
+                if(schedule == null) {
+                    Log.e("fetchSchedule","Student UseCases : Schedule Fetched is null or update got cancelled")
+                    onComplete(
+                        FetchSchedulesDataState(
+                            isLoading = false,
+                            error = true,
+                            errorMessage = "Schedule Fetched Is Null"
+                        )
+                    )
+                }
+                else{
+                    Log.d("fetchSchedule","StudentUseCases : Schedule Fetched Successfully")
+                    Log.d("fetchSchedule","Schedule data : $schedule")
+                    onComplete(
+                        FetchSchedulesDataState(
+                            isLoading = false,
+                            schedule = schedule
+                        )
+                    )
+                }
             }
 
         } catch (e: Exception) {
             Log.d("studentUseCases", "Error occurred when fetching schedule: ${e.message}")
 
-            onComplete(SchedulesDataState(
+            onComplete(FetchSchedulesDataState(
                 isLoading = false,
                 error = true,
                 errorMessage = "An error occurred while fetching the schedule: ${e.message}"
@@ -140,10 +150,23 @@ class StudentUseCases @Inject constructor(
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun createSchedule(userUid:String, schedule: Schedule, onComplete:()->Unit){
-        val info = studentDatabase.createSchedule(userUid, schedule)
-        studentDatabase.scheduleStartCheck(userUid,info.first,info.second,context)
-        onComplete()
+    suspend fun createSchedule(userUid:String, schedule: Schedule, onComplete:(String)->Unit){
+        //TODO later move all these functions to a batchFunction
+        var info : Pair<String, Long>? = null
+        //Info contains two things {scheduleUid, scheduleStartTime}
+        try {
+            info = studentDatabase.createSchedule(userUid, schedule)
+            studentDatabase.bookSchedule(userUid,info.first)
+            cycleDatabase.bookSchedule(info.first,schedule.cycleUid,schedule.estimateTime+schedule.startTime)
+            studentDatabase.scheduleStartCheck(userUid,info.first,info.second,context, schedule.cycleUid)
+            Log.d("createSchedule","All functions completed successfully")
+            //If any function fails then whole process should be reverted, hence better use batchFunctions something like transactions
+            onComplete(info.first)
+        }
+        catch (e:Exception){
+            Log.e("createSchedule","Failed to create schedule")
+            throw e
+        }
     }
 
     suspend fun startTimer(userUid:String,cycleUid:String){

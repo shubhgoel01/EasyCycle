@@ -15,6 +15,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.example.easycycle.calculateEstimatedCost
 import com.example.easycycle.data.Enum.ScheduleState
+import com.example.easycycle.data.remote.CycleFirebaseService
 import com.example.easycycle.data.remote.StudentFirebaseService
 import com.example.easycycle.presentation.viewmodel.UserViewModel
 import dagger.assisted.Assisted
@@ -27,12 +28,14 @@ class CycleStateWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted workerParams: WorkerParameters,
     private val studentFirebaseService: StudentFirebaseService,
+    private val cycleFirebaseService: CycleFirebaseService
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
         val scheduleUid = inputData.getString("scheduleUid") ?: return Result.failure()
         val userUid = inputData.getString("userUid") ?: return Result.failure()
         val action = inputData.getString("action") ?: return Result.failure()
+        val cycleUid = inputData.getString("cycleUid") ?: return Result.failure()
 
         try {
             // Fetch the schedule details from the database
@@ -48,7 +51,7 @@ class CycleStateWorker @AssistedInject constructor(
                     // Change state to Ongoing
                     if (System.currentTimeMillis() >= startTimeAndExpectedTime.first) {
                         updateScheduleState(scheduleUid, ScheduleState.ONGOING)
-                        enqueueEndCheck(scheduleUid,userUid,startTimeAndExpectedTime.second)
+                        enqueueEndCheck(scheduleUid,userUid,startTimeAndExpectedTime.second,cycleUid)
                     }
                 }
                 "end" -> {
@@ -56,7 +59,8 @@ class CycleStateWorker @AssistedInject constructor(
                     if (System.currentTimeMillis() >= startTimeAndExpectedTime.first + startTimeAndExpectedTime.second) {
                         updateScheduleState(scheduleUid, ScheduleState.OVERTIME)
                         updatePrevBalance(userUid,startTimeAndExpectedTime.first,startTimeAndExpectedTime.second)
-                        enqueueNextPenaltyCheck(scheduleUid,userUid)
+                        updateCycleNextAvailableTime(cycleUid,System.currentTimeMillis()+60*1000*60)
+                        enqueueNextPenaltyCheck(scheduleUid,userUid,cycleUid)
                     }
                 }
             }
@@ -91,7 +95,12 @@ class CycleStateWorker @AssistedInject constructor(
         //userViewModel.updateExtendedFare(updatedPrevBalance)
     }
 
-    private fun enqueueEndCheck(scheduleUid : String , userUid:String, estimateTime:Long) {
+    private suspend fun updateCycleNextAvailableTime(cycleUid:String,updateTime:Long){
+        Log.d("Wroker","updateCycleNextAvailableTime")
+        cycleFirebaseService.updateNextAvailableTime(cycleUid,updateTime)
+    }
+
+    private fun enqueueEndCheck(scheduleUid : String , userUid:String, estimateTime:Long, cycleUid:String) {
         val delayMillis = estimateTime
         val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
@@ -100,7 +109,8 @@ class CycleStateWorker @AssistedInject constructor(
                 workDataOf(
                     "scheduleUid" to scheduleUid,
                     "action" to "end",
-                    "userUid" to userUid
+                    "userUid" to userUid,
+                    "cycleUid" to cycleUid
                 )
             )
             .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
@@ -110,7 +120,7 @@ class CycleStateWorker @AssistedInject constructor(
         WorkManager.getInstance(applicationContext).enqueue(workRequest)
     }
 
-    private fun enqueueNextPenaltyCheck(scheduleUid: String , userUid:String) {
+    private fun enqueueNextPenaltyCheck(scheduleUid: String , userUid:String, cycleUid:String) {
         val delayMillis = 1L * 60L * 60L * 1000L // 1 hour
 
         val workRequest = OneTimeWorkRequestBuilder<CycleStateWorker>()
@@ -118,7 +128,8 @@ class CycleStateWorker @AssistedInject constructor(
                 workDataOf(
                     "scheduleUid" to scheduleUid,
                     "action" to "end",
-                    "userUid" to userUid
+                    "userUid" to userUid,
+                    "cycleUid" to cycleUid
                 )
             )
             .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)

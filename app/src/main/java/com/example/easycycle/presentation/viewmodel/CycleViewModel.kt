@@ -57,7 +57,7 @@ class CycleViewModel @Inject constructor(
         }
     }
 
-    fun reserveAvailableCycle(){
+    fun reserveAvailableCycle(onComplete:(bookCycle)->Unit){
         viewModelScope.launch(Dispatchers.IO) {
             sharedUseCase.bookAvailableCycleAndSetTimer{
                 _reserveAvailableCycleState.value = _reserveAvailableCycleState.value.copy(
@@ -66,6 +66,7 @@ class CycleViewModel @Inject constructor(
                     errorMessage = it.errorMessage,
                     cycle = it.cycle
                 )
+                onComplete(it)
             }
         }
     }

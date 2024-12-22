@@ -1,20 +1,15 @@
 package com.example.easycycle.presentation.viewmodel
 
-import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.easycycle.data.model.Schedule
-import com.example.easycycle.data.model.SchedulesDataState
-import com.example.easycycle.data.model.Student
+import com.example.easycycle.data.model.FetchSchedulesDataState
+import com.example.easycycle.data.model.ResultState
 import com.example.easycycle.data.model.StudentDataState
 import com.example.easycycle.data.model.userDataState
-import com.example.easycycle.data.remote.StudentFirebaseService
 import com.example.easycycle.domain.usecases.StudentUseCases
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,20 +27,6 @@ class UserViewModel @Inject constructor(
 
     private var _studentDataState = MutableStateFlow(StudentDataState())
     var studentDataState: StateFlow<StudentDataState> = _studentDataState
-
-    private var _userDataState = MutableStateFlow(userDataState())
-    var userDataState:StateFlow<userDataState> = _userDataState
-
-    private var _scheduleDataState = MutableStateFlow(SchedulesDataState())
-    var scheduleDataState : StateFlow<SchedulesDataState> = _scheduleDataState
-
-    private var _extendedFare = MutableStateFlow<Long>(0)
-    var extendedFare : StateFlow<Long> = _extendedFare
-
-
-    fun updateExtendedFare(value:Long){
-        _extendedFare.value = value
-    }
     fun updateStudentDataState(updatedUserDataState : StudentDataState){
         Log.d("Student","Updating student details")
         _studentDataState.value=_studentDataState.value.copy(
@@ -55,6 +36,36 @@ class UserViewModel @Inject constructor(
             errorMessage =updatedUserDataState.errorMessage
         )
         Log.d("User","Updated student details ${_studentDataState.value}")
+    }
+
+    private var _userDataState = MutableStateFlow(userDataState())
+    var userDataState:StateFlow<userDataState> = _userDataState
+
+    private var _scheduleDataState = MutableStateFlow(FetchSchedulesDataState())
+    var scheduleDataState : StateFlow<FetchSchedulesDataState> = _scheduleDataState
+    fun updateScheduleDataState(newScheduleDataState:FetchSchedulesDataState){
+        Log.d("updateScheduleDataState","ScheduleDataState Updated")
+
+        _scheduleDataState.value = _scheduleDataState.value.copy(
+            isLoading = newScheduleDataState.isLoading,
+            error = newScheduleDataState.error,
+            schedule = newScheduleDataState.schedule,
+            errorMessage =  newScheduleDataState.errorMessage
+        )
+        Log.d("Schedule Updated Value",_scheduleDataState.value.toString())
+    }
+
+    private var _extendedFare = MutableStateFlow<Long>(0)
+    var extendedFare : StateFlow<Long> = _extendedFare
+
+    fun updateExtendedFare(value:Long){
+        _extendedFare.value = value
+    }
+
+    private val _createScheduleState = MutableStateFlow<ResultState<Schedule>>(ResultState.Loading())
+    val createScheduleState: StateFlow<ResultState<Schedule>> = _createScheduleState
+    fun updateCreateScheduleState(value:ResultState<Schedule>){
+        _createScheduleState.value = value
     }
 
     fun fetchStudentDetails(registrationNumber:String){
@@ -85,40 +96,39 @@ class UserViewModel @Inject constructor(
     }
 
 
-    fun updateScheduleDataState(newScheduleDataState:SchedulesDataState){
-        Log.d("Schedule","Inside updateScheduleDataState")
 
-        _scheduleDataState.value = _scheduleDataState.value.copy(
-            isLoading = newScheduleDataState.isLoading,
-            error = newScheduleDataState.error,
-            schedule = newScheduleDataState.schedule,
-            errorMessage =  newScheduleDataState.errorMessage
-        )
-        Log.d("Schedule Updated Value",_scheduleDataState.value.toString())
-    }
-    fun fetchSchedule(userUid:String){
+    fun fetchSchedule(scheduleUid:String){
         Log.d("schedule","Inside fetchSchedule userViewModel")
         viewModelScope.launch(Dispatchers.IO) {
-            studentUseCases.fetchSchedule(userUid){
+            //First clear any previous data to avoid false information
+            updateScheduleDataState(FetchSchedulesDataState())
+            studentUseCases.fetchSchedule(scheduleUid){
                 updateScheduleDataState(it)
             }
         }
     }
     @RequiresApi(Build.VERSION_CODES.O)
-    fun createSchedule(userUid:String, schedule: Schedule){
+    fun createSchedule(schedule: Schedule,onComplete:(ResultState<Schedule>)->Unit){
+        //Clear Previous ScheduleDataState to ensure that always updated data is shown
+        _scheduleDataState.value = FetchSchedulesDataState()
         viewModelScope.launch(Dispatchers.IO) {
-            studentUseCases.createSchedule(userUid,schedule){
-                _scheduleDataState.value = _scheduleDataState.value.copy(
-                    isLoading = false,
-                    schedule = schedule
+            try {
+                studentUseCases.createSchedule(
+                    schedule.userUid,
+                    schedule,
+                    onComplete = { scheduleUid->
+                        onComplete(ResultState.Success(schedule.copy(
+                            scheduleUid = scheduleUid
+                        )))
+                        fetchSchedule(scheduleUid)
+                    }
                 )
+            }
+            catch (e:Exception){
+                onComplete(ResultState.Error("Some Error Occurred While creating schedule $e"))
+                Log.d("createSchedule","UserViewModel Some error Occurred somewhere")
             }
         }
     }
 
-    fun startTimer(){
-        viewModelScope.launch(Dispatchers.IO) {
-
-        }
-    }
 }

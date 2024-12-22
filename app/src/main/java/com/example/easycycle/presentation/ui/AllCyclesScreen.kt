@@ -155,7 +155,7 @@ fun CycleItem(cycle: Cycle, sharedViewModel: SharedViewModel,navController: NavC
             Text(text = "Cycle ID: ${cycle.cycleId}", style = MaterialTheme.typography.bodySmall)
             Text(text = "Location: ${cycle.location}", style = MaterialTheme.typography.bodySmall)
 
-            if (cycle.underProcess) {
+            if (cycle.underProcess && !cycle.booked) {
                 Text(
                     text = "Status: Under Process",
                     style = MaterialTheme.typography.bodySmall,
@@ -175,7 +175,7 @@ fun CycleItem(cycle: Cycle, sharedViewModel: SharedViewModel,navController: NavC
                     color = Color.Red
                 )
                 Text(
-                    text = "Available by: $formattedTime",
+                    text = "Available by: ~$formattedTime",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -195,7 +195,7 @@ fun CycleItem(cycle: Cycle, sharedViewModel: SharedViewModel,navController: NavC
                 .clip(CircleShape)
                 .background(
                     when {
-                        cycle.underProcess -> Color.Yellow
+                        cycle.underProcess && !cycle.booked -> Color.Yellow
                         cycle.booked -> Color.Red
                         else -> Color.Green
                     }

@@ -1,5 +1,6 @@
 package com.example.easycycle.presentation.ui.components
 
+import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +34,7 @@ fun Component_tDialogBox(
     onDismissRequest: () -> Unit,
     composable: (@Composable () -> Unit)? = null
     ) {
+    Log.d("Dialog Box","Called")
         Dialog(onDismissRequest = { onDismissRequest() }) {
             Card(
                 modifier = Modifier

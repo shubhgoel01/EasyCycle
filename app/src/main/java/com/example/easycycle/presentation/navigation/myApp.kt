@@ -24,12 +24,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.easycycle.data.Enum.ScheduleState
 import com.example.easycycle.data.model.Schedule
 import com.example.easycycle.data.model.ScheduleStatus
-import com.example.easycycle.data.model.SchedulesDataState
+import com.example.easycycle.data.model.FetchSchedulesDataState
 import com.example.easycycle.data.model.StudentDataState
 import com.example.easycycle.data.model.bookCycle
 import com.example.easycycle.presentation.ui.AllCyclesScreen
@@ -37,14 +38,17 @@ import com.example.easycycle.presentation.ui.BookingScreen
 import com.example.easycycle.presentation.ui.LoadingPage
 import com.example.easycycle.presentation.ui.SignInScreen
 import com.example.easycycle.presentation.ui.components.BookingFAB
+import com.example.easycycle.presentation.ui.components.Component_tDialogBox
 import com.example.easycycle.presentation.ui.components.ViewTopAppBar
 import com.example.easycycle.presentation.ui.components.drawerContent
+import com.example.easycycle.presentation.ui.eachScheduleDetailScreen
 import com.example.easycycle.presentation.ui.errorPage
 import com.example.easycycle.presentation.ui.homeScreen
 import com.example.easycycle.presentation.viewmodel.AdminViewModel
 import com.example.easycycle.presentation.viewmodel.CycleViewModel
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
 import com.example.easycycle.presentation.viewmodel.UserViewModel
+import com.google.gson.Gson
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -63,7 +67,14 @@ fun myApp(
 
     val scaffoldState= rememberScaffoldState()
     val scope= rememberCoroutineScope()
+
+
+    //To define NavController for navigation
     val navController = rememberNavController()
+    // Observe the current back stack entry
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route    //can be used to determine on which screen currently user is, used to show screen specific data/dialog/message
+
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
 
     val user = sharedViewModel.currUser.collectAsState()
@@ -101,7 +112,7 @@ fun myApp(
         fabExpanded = false
     }
     val onFabClick2 = {
-
+        //TODO
     }
     val onConfirmFab2: (String) -> Unit = { value ->
         println("Option clicked: $value")
@@ -132,7 +143,7 @@ fun myApp(
                 userUid = user.value!!.uid,
                 startTime = System.currentTimeMillis() + 1 * 60 * 1000,
                 estimateTime = 2 * 60 * 1000,
-                Status = ScheduleStatus(
+                status = ScheduleStatus(
                     status = ScheduleState.BOOKED,
                 )
             )
@@ -160,16 +171,17 @@ fun myApp(
                 userViewModel.fetchStudentDetails(userDataState.value.user.registrationNumber)
                 if(userDataState.value.user.scheduleId!=""){
                     Log.d("User","calling fetchScheduleDetails")
-                    sharedViewModel.currUser.value?.let { userViewModel.fetchSchedule(it.uid) }
+                    //sharedViewModel.currUser.value?.let { userViewModel.fetchSchedule(it.uid) }
+                    sharedViewModel.currUser.value?.let { userViewModel.fetchSchedule(userDataState.value.user.scheduleId) }
                 }
                 else{
-                    userViewModel.updateScheduleDataState(SchedulesDataState(
+                    userViewModel.updateScheduleDataState(FetchSchedulesDataState(
                         isLoading = false,
                         error = false
                     ))
                 }
                 //Checking the userTimer
-                if( userDataState.value.user.timerStartTime!=null && userDataState.value.user.timerStartTime!! + 5*60*1000 > System.currentTimeMillis()) {
+                if( userDataState.value.user.timerStartTime!=null && userDataState.value.user.timerStartTime!! + 5*60*1000 > System.currentTimeMillis() && userDataState.value.user.scheduleId=="") {
                     Log.d("myApp","Inside If")
                     if(userDataState.value.user.cycleId != ""){
                         sharedViewModel.updateReservedCycleUid(userDataState.value.user.cycleId)
@@ -202,6 +214,28 @@ fun myApp(
             startDestination = Routes.UserHome.route
         }
         else if(user.value!=null) startDestination = Routes.LoadingScreen.route
+    }
+
+
+    //Moved from booking page to here, now where-ever the user is, i.e. on any screen the dialog will be visible
+    val showDialog1 = sharedViewModel.showDialog1.collectAsState()  //Used when timer is expired
+    if(showDialog1.value)
+    {
+        val dialogMessage = when (currentRoute) {
+            Routes.UserHome.route -> "The timer has expired. Please restart the booking process to book a ride."
+            Routes.BookingScreen.route -> "The timer has expired. Please return to the home screen to restart the booking process."
+            Routes.SignInScreen.route -> "Your session expired. Please sign in again."
+            else -> "An error occurred. Please try again."
+        }
+        if(currentRoute == Routes.UserHome.route){
+            cycleViewModel.updateReserveAvailableCycleState(bookCycle())
+            //Reset availableCycleDataState
+        }
+        Component_tDialogBox(
+            heading = "Timer Ran-Out",
+            body = dialogMessage,
+            onDismissRequest = {sharedViewModel.updateShowDialog1(false)}
+        )
     }
 
     Scaffold(
@@ -248,11 +282,25 @@ fun myApp(
             )) {backStackEntry->
                 val rentNow= backStackEntry.arguments?.getBoolean("rentNow") ?: false
                 val rentLater = backStackEntry.arguments?.getBoolean("rentLater") ?: true
-                BookingScreen(rentNow = rentNow , rentLater = rentLater,sharedViewModel,cycleViewModel,snackbarHostState, navController)
+                BookingScreen(rentNow = rentNow , rentLater = rentLater,sharedViewModel,cycleViewModel,userViewModel,snackbarHostState, navController)
             }
             composable(Routes.AllCycleScreen.route) {
                 AllCyclesScreen(cycleViewModel,sharedViewModel,navController){
                     //TODO
+                }
+            }
+            composable(
+                route = Routes.EachScheduleDetailScreen.route,
+                arguments = listOf(navArgument("schedule") { type = NavType.StringType })
+            ) { backStackEntry ->
+                // Retrieve the "schedule" argument
+                val scheduleString = backStackEntry.arguments?.getString("schedule") ?: ""
+                if(scheduleString=="")
+                    Log.d("myApp navigation","Error in deserialization")
+                else{
+                    // Deserialize the schedule
+                    val schedule = Gson().fromJson(scheduleString, Schedule::class.java)
+                    eachScheduleDetailScreen(schedule, userViewModel, navController)
                 }
             }
         }
@@ -266,6 +314,9 @@ sealed class Routes(val route: String) {
     object LoadingScreen : Routes("LoadingScreen")
     object BookingScreen : Routes("BookingScreen/{rentNow}/{rentLater}"){
         fun createRoute(rentNow: Boolean, rentLater: Boolean) = "BookingScreen/$rentNow/$rentLater"
+    }
+    object EachScheduleDetailScreen : Routes("EachScheduleDetailScreen/{schedule}") {
+        fun createRoute(schedule: String) = "EachScheduleDetailScreen/$schedule"
     }
     object AllCycleScreen : Routes("AllCycleScreen")
 }
