@@ -25,6 +25,14 @@ class UserViewModel @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
 ): ViewModel(){
 
+    //To return or cancel the schedule
+    private val _returnOrCancelSchedule = MutableStateFlow<ResultState<Schedule>>(ResultState.Loading(false))
+    val returnOrCancelSchedule: StateFlow<ResultState<Schedule>> = _returnOrCancelSchedule
+    fun updateReturnOrCancelSchedule(it:ResultState<Schedule>){
+        Log.d("userViewModel","inside updateReturnOrCancelSchedule")
+        _returnOrCancelSchedule.value = it
+    }
+
     private var _studentDataState = MutableStateFlow(StudentDataState())
     var studentDataState: StateFlow<StudentDataState> = _studentDataState
     fun updateStudentDataState(updatedUserDataState : StudentDataState){
@@ -131,4 +139,28 @@ class UserViewModel @Inject constructor(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun returnOrCancelRide(schedule:Schedule){
+
+        //Now if success then simply move to the home screen
+        _returnOrCancelSchedule.value = ResultState.Loading(true)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                studentUseCases.returnOrCancelRide(
+                    schedule,
+                    onComplete = {
+                        Log.d("returnOrCancelRide","OnComplete Called")
+                        _scheduleDataState.value = FetchSchedulesDataState(isLoading = false)
+                        _returnOrCancelSchedule.value = ResultState.Success(null)
+                        Log.d("returnOrCancelRide","updated _returnOrCancelSchedule")
+                    }
+                )
+            }
+            catch (e:Exception){
+                Log.d("returnOrCancelRide","Could Not complete the process")
+                Log.d("returnOrCancelRide","$e")
+                _returnOrCancelSchedule.value = ResultState.Error(e.toString())
+            }
+        }
+    }
 }

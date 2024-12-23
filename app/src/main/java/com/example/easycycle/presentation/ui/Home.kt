@@ -75,6 +75,7 @@ fun homeScreen(
     sharedViewModel: SharedViewModel,
     snackbarHostState: SnackbarHostState
 ) {
+    Log.d("homeScreen","Screen Called")
     val user = sharedViewModel.currUser.collectAsState()
 
     val schedulesDataState = userViewModel.scheduleDataState.collectAsState()
@@ -215,6 +216,8 @@ fun ScheduleScreen(
     userViewModel: UserViewModel,
     navController: NavController
 ) {
+
+    Log.d("ScheduleScreen","Screen Called")
     var showDialog1 by remember { mutableStateOf(false) }
     if(showDialog1){
         Component_tDialogBox(
@@ -248,16 +251,10 @@ fun ScheduleScreen(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .clickable {
-                // Because schedule is of userDefinedDataType :Schedule hence need to be serialized to String
-                navController.navigate(
-                    Routes.EachScheduleDetailScreen.createRoute(
-                        Gson().toJson(
-                            schedule
-                        )
-                    )
-                )
-            },
+            .clickable(onClick =  {
+                Log.d("ScheduleScreen","navigating to EachScheduleDetailScreen")
+                navController.navigate(Routes.EachScheduleDetailScreen.route)
+            }),
         tonalElevation = 4.dp,
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface

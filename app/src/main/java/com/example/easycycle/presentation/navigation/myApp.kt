@@ -138,17 +138,6 @@ fun myApp(
         if(user.value!=null && usertype.value=="User"){
             Log.d("User","calling fetchUserDetails")
              userViewModel.fetchUserDetails(user.value!!.uid)
-
-            val tempSchedule = Schedule(
-                userUid = user.value!!.uid,
-                startTime = System.currentTimeMillis() + 1 * 60 * 1000,
-                estimateTime = 2 * 60 * 1000,
-                status = ScheduleStatus(
-                    status = ScheduleState.BOOKED,
-                )
-            )
-            //Log.d("Schedule","Creating New Schedule")
-            //userViewModel.createSchedule(user.value!!.uid,tempSchedule)
         }
     }
 
@@ -266,9 +255,11 @@ fun myApp(
                 }
             }
             composable(Routes.UserHome.route) {
+                Log.d("myApp","Navigating to home screen")
                 homeScreen(studentDataState.value.student,navController,userViewModel,sharedViewModel,snackbarHostState)
             }
             composable(Routes.ErrorScreen.route) {
+                Log.d("myApp","Navigating to error screen")
                 errorPage("Please pass the parameter in the MYAPP")
             }
             composable(Routes.LoadingScreen.route) {
@@ -289,19 +280,9 @@ fun myApp(
                     //TODO
                 }
             }
-            composable(
-                route = Routes.EachScheduleDetailScreen.route,
-                arguments = listOf(navArgument("schedule") { type = NavType.StringType })
-            ) { backStackEntry ->
-                // Retrieve the "schedule" argument
-                val scheduleString = backStackEntry.arguments?.getString("schedule") ?: ""
-                if(scheduleString=="")
-                    Log.d("myApp navigation","Error in deserialization")
-                else{
-                    // Deserialize the schedule
-                    val schedule = Gson().fromJson(scheduleString, Schedule::class.java)
-                    eachScheduleDetailScreen(schedule, userViewModel, navController)
-                }
+            composable(route = Routes.EachScheduleDetailScreen.route) {
+                Log.d("myApp","Navigating to EachScheduleDetailScreen")
+                eachScheduleDetailScreen(userViewModel, navController)
             }
         }
     }
@@ -315,9 +296,7 @@ sealed class Routes(val route: String) {
     object BookingScreen : Routes("BookingScreen/{rentNow}/{rentLater}"){
         fun createRoute(rentNow: Boolean, rentLater: Boolean) = "BookingScreen/$rentNow/$rentLater"
     }
-    object EachScheduleDetailScreen : Routes("EachScheduleDetailScreen/{schedule}") {
-        fun createRoute(schedule: String) = "EachScheduleDetailScreen/$schedule"
-    }
+    object EachScheduleDetailScreen : Routes("EachScheduleDetailScreen")
     object AllCycleScreen : Routes("AllCycleScreen")
 }
 

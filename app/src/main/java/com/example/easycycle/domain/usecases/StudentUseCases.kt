@@ -178,4 +178,18 @@ class StudentUseCases @Inject constructor(
             throw e
         }
     }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun returnOrCancelRide(schedule:Schedule,onComplete:()->Unit){
+        //First Update user
+        //Update cycleField Booked = false according to me no need to update other fields like, scheduleUid, nextAvailableTime in cycle as these will be used only if the cycle is booked
+        //Once this is done Remove the scheduleListener and set schedule to null and move to home screen, and set the worker
+        //In worker - Create a new node in ScheduleHistory, update cycleBookingHistory, deleteSchedule from Schedule Node, update user BookingHistory
+        studentDatabase.updateUserScheduleId(schedule.userUid,"")
+        cycleDatabase.updateCycleBooked(schedule.cycleUid,false)
+        studentDatabase.removeScheduleListener(schedule.scheduleUid)
+        studentDatabase.returnOrCancelScheduleWorkerStart(schedule,context)
+        Log.d("returnOrCancelRide","All functions completed")
+        onComplete()
+    }
 }

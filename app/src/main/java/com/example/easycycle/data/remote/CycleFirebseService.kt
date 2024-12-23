@@ -7,6 +7,7 @@ import com.example.easycycle.data.model.bookCycle
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.GenericTypeIndicator
 import com.google.firebase.database.MutableData
 import com.google.firebase.database.Transaction
 import com.google.firebase.database.ValueEventListener
@@ -207,6 +208,29 @@ class CycleFirebaseService @Inject constructor(
         }
         catch (e:Exception){
             Log.e("updateCycleBooked","cycleFirebaseService Error Occurred")
+            throw e
+        }
+    }
+    suspend fun updateBookingHistory(cycleUid:String,scheduleUid:String){
+        val cycleRef = cyclesRef.child(cycleUid)
+        cycleRef.child("bookingHistory").get().addOnSuccessListener { snapshot ->
+            val currentHistory = snapshot.getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
+
+            // Create an updated list
+            val updatedHistory = currentHistory.toMutableList()
+            updatedHistory.add(scheduleUid)
+
+            // Update the database
+            cycleRef.child("bookingHistory").setValue(updatedHistory)
+                .addOnSuccessListener {
+                    Log.d("Firebase", "Booking history updated successfully")
+                }
+                .addOnFailureListener { e ->
+                    Log.e("Firebase", "Failed to update booking history", e)
+                    throw e
+                }
+        }.addOnFailureListener { e ->
+            Log.e("Firebase", "Failed to fetch booking history", e)
             throw e
         }
     }

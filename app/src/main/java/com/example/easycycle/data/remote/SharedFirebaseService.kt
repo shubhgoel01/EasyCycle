@@ -2,6 +2,8 @@ package com.example.easycycle.data.remote
 
 import android.util.Log
 import com.example.easycycle.data.model.Activity
+import com.example.easycycle.data.model.Schedule
+import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -100,6 +102,35 @@ class SharedFirebaseService @Inject constructor(
             Log.e("Authentication", "Error occurred while reloading user authentication", e)
             throw e // Optionally re-throw or handle the error here
         }
+    }
+
+    suspend fun createNewScheduleHistory(schedule: Schedule){
+        try{
+            val ref = database.child("ScheduleHistory")
+            val snapshot = ref.child(schedule.scheduleUid)
+            snapshot.setValue(schedule).await()
+            Log.d("worker2","Correctly Updated schedule history")
+        }
+        catch (e: FirebaseNetworkException) {
+            throw e // Rethrow network-related exceptions for retry
+        }
+        catch (e:Exception){
+            Log.e("worker2","Error Occurred when updating schedule history")
+            Log.e("worker2","$e")
+            throw e
+        }
+    }
+
+    suspend fun removeSchedule(scheduleUid:String){
+        val snapshot = database.child("Schedule").child(scheduleUid)
+        snapshot.removeValue()
+            .addOnSuccessListener {
+                Log.d("Firebase", "Schedule deleted successfully")
+            }
+            .addOnFailureListener { e ->
+                Log.e("Firebase", "Failed to delete schedule", e)
+                throw e
+            }
     }
 
 }

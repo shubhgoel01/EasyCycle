@@ -5,10 +5,13 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.easycycle.Worker.CycleStateWorker
+import com.example.easycycle.Worker.ReturnOrCancelWorker
 import com.example.easycycle.data.Enum.ScheduleState
 import com.example.easycycle.data.model.Schedule
 import com.example.easycycle.data.model.Student
@@ -22,8 +25,10 @@ import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.GenericTypeIndicator
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.storage.FirebaseStorage
+import com.google.gson.Gson
 import kotlinx.coroutines.tasks.await
 import java.time.Duration
 import java.util.concurrent.TimeUnit
@@ -475,5 +480,51 @@ class StudentFirebaseService @Inject constructor(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun returnOrCancelScheduleWorkerStart(schedule:Schedule, context: Context) {
+
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val workRequest = OneTimeWorkRequestBuilder<ReturnOrCancelWorker>()
+            .setInputData(
+                workDataOf(
+                    "schedule" to Gson().toJson(schedule)
+            ))
+            //.setInitialDelay(1*60*1000, TimeUnit.MILLISECONDS)
+            .setBackoffCriteria(
+                backoffPolicy = BackoffPolicy.LINEAR,
+                duration = Duration.ofSeconds(30)
+            )
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(context).enqueue(workRequest)
+        Log.d("Worker2","LastLine")
+    }
+
+    suspend fun updateBookingHistory(userUid:String,scheduleUid:String){
+        val cycleRef = userRef.child(userUid)
+        cycleRef.child("bookingHistory").get().addOnSuccessListener { snapshot ->
+            val currentHistory = snapshot.getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
+
+            // Create an updated list
+            val updatedHistory = currentHistory.toMutableList()
+            updatedHistory.add(scheduleUid)
+
+            // Update the database
+            cycleRef.child("bookingHistory").setValue(updatedHistory)
+                .addOnSuccessListener {
+                    Log.d("Firebase", "Booking history updated successfully")
+                }
+                .addOnFailureListener { e ->
+                    Log.e("Firebase", "Failed to update booking history", e)
+                    throw e
+                }
+        }.addOnFailureListener { e ->
+            Log.e("Firebase", "Failed to fetch booking history", e)
+            throw e
+        }
+    }
 
 }
