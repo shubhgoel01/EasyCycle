@@ -1,9 +1,11 @@
 package com.example.easycycle.data.remote
 
 import android.util.Log
+import com.example.easycycle.data.Enum.ErrorType
 import com.example.easycycle.data.Enum.Location
+import com.example.easycycle.data.model.AppErrorException
 import com.example.easycycle.data.model.Cycle
-import com.example.easycycle.data.model.bookCycle
+import com.example.easycycle.data.model.ResultState
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -29,7 +31,7 @@ class CycleFirebaseService @Inject constructor(
     private val cycleListFlow = MutableStateFlow<List<Cycle>>(emptyList())
     suspend fun getAllCyclesAndAddEventListener(location: Location): StateFlow<List<Cycle>> {
         val query = if (location == Location.ALL) {
-            cyclesRef // No filtering, fetch all cycles
+            cyclesRef
         } else {
             cyclesRef.orderByChild("location").equalTo(location.name) // Filter by location
         }
@@ -37,15 +39,17 @@ class CycleFirebaseService @Inject constructor(
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val updatedList = snapshot.children.mapNotNull { it.getValue(Cycle::class.java) }
+                if(updatedList.isEmpty()){
+                    throw AppErrorException(ErrorType.DATA_NOT_FOUND,"getAllCyclesAndAddEventListener CycleFirebaseService","No Cycles data Found")
+                }
                 cycleListFlow.value = updatedList
             }
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e("CycleFirebaseService", "Error fetching cycles: ${error.message}")
-                cycleListFlow.value = emptyList()
+                throw AppErrorException(ErrorType.CANCELLED,"getAllCyclesAndAddEventListener CycleFirebaseService","$error")
             }
         }
-
         query.addValueEventListener(listener)
         allCycleDatabaseListener = listener // Assign the listener to `databaseListener`
 
@@ -56,9 +60,9 @@ class CycleFirebaseService @Inject constructor(
     fun getAllCyclesRemoveEventListener(location: Location) {
         try {
             val query = if (location == Location.ALL) {
-                cyclesRef // No filtering, fetch all cycles
+                cyclesRef
             } else {
-                cyclesRef.orderByChild("location").equalTo(location.name) // Filter by location
+                cyclesRef.orderByChild("location").equalTo(location.name)
             }
 
             allCycleDatabaseListener?.let { listener ->
@@ -68,15 +72,16 @@ class CycleFirebaseService @Inject constructor(
             } ?: run {
                 Log.w("removeEventListener", "No listener to remove for location: $location")
             }
-        } catch (e: Exception) {
-            Log.e("removeEventListener", "Error occurred: ${e.message}")
+        }
+        catch(e:Exception){
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"getAllCyclesRemoveEventListener CycleFireBaseService","$e")
         }
     }
 
 
 
     //IT RETURNS FULL CYCLE NODE BUT WHERE IT IS USED I JUST NEED CYCLE-ID hence IN-EFFICIENT
-    suspend fun getAvailableCycles(): List<Cycle>? {
+    suspend fun getAvailableCycles(): List<Cycle> {
         Log.d("Cycles","inside getAvailableCycles")
         val cycleList = mutableListOf<Cycle>()
         return try {
@@ -92,12 +97,10 @@ class CycleFirebaseService @Inject constructor(
                 // instead use this line for optimization, Update later
                 Log.d("Cycles","snapshot exist $cycleList")
                 cycleList
-            } else {
-                Log.d("Cycles","snapshot does not exist")
-                null
-            }
+            } else
+                throw AppErrorException(ErrorType.DATA_NOT_FOUND,"getAvailableCycles CycleFirebaseService","Snapshot Does Not Exist")
         } catch (e: Exception) {
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"getAvailableCycles CycleFirebaseService","$e")
         }
     }
 
@@ -108,7 +111,7 @@ class CycleFirebaseService @Inject constructor(
         }
         catch (e:Exception){
             Log.e("Cycle", "Error occurred while adding cycle: ${e.message}")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"addCycle CycleFirebaseService","$e")
         }
     }
 
@@ -118,15 +121,14 @@ class CycleFirebaseService @Inject constructor(
             val snapshot = query.get().await()
             if(snapshot.exists())
                     return true
+            else throw AppErrorException(ErrorType.DATA_NOT_FOUND,"cycleExist CycleFirebaseService","SnapShot Does Not Exist")
         }
         catch (e:Exception){
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"cycleExist CycleFirebaseService","$e")
         }
-        return false
     }
 
-    suspend fun Transaction(cycleId: String): bookCycle {
-        Log.d("Transaction", "CycleId: $cycleId")
+    suspend fun Transaction(cycleId: String): ResultState<Unit> {
         val cycleRef = cyclesRef.child(cycleId)
         val bookedRef = cycleRef.child("underProcess")
 
@@ -142,7 +144,6 @@ class CycleFirebaseService @Inject constructor(
                         Log.d("Transaction", "Cycle is either already under process or null (not initialized).")
                         Transaction.abort()
                     } else {
-                        // Update cycle status to 'under process'
                         Log.d("Transaction", "Updating cycle status to under process.")
                         currentData.value = true // Mark cycle as under process
                         Transaction.success(currentData) // Commit the transaction
@@ -154,21 +155,11 @@ class CycleFirebaseService @Inject constructor(
                     committed: Boolean,
                     currentData: DataSnapshot?
                 ) {
-                    val resultState = when {
-                        error != null -> {
-                            Log.e("CycleUpdate", "Transaction failed: ${error.message}")
-                            bookCycle(isLoading = false, error = true, errorMessage = error.message ?: "Unknown error")
-                        }
-                        committed -> {
-                            Log.d("CycleUpdate", "Transaction committed successfully.")
-                            bookCycle(isLoading = false, error = false)
-                        }
-                        else -> {
-                            Log.d("CycleUpdate", "Transaction was aborted.")
-                            bookCycle(isLoading = false, error = true, errorMessage = "Transaction aborted, cycle is already under process")
-                        }
-                    }
-                    continuation.resume(resultState)
+                    if(committed)
+                        continuation.resume(ResultState.Success(null))
+                    else if(error!=null)
+                        continuation.resume((ResultState.Error(AppErrorException(ErrorType.UNEXPECTED_ERROR,"Transaction CycleFirebaseService","$error"))))
+                    else continuation.resume((ResultState.Error(AppErrorException(ErrorType.CANCELLED,"Transaction CycleFirebaseService","Transaction Is Aborted"))))
                 }
             })
         }
@@ -183,20 +174,18 @@ class CycleFirebaseService @Inject constructor(
         }
         catch (e:Exception){
             Log.e("bookSchedule cycleFirebaseService","Error Occurred")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"bookSchedule CycleFirebaseService","$e")
         }
     }
 
     suspend fun updateNextAvailableTime(cycleUid:String,updatedTime:Long){
         try {
-            Log.d("CycleFirebaseService","Entered updateAvailableTime")
             val snapshot = cyclesRef.child(cycleUid)
             snapshot.child("cycleStatus").child("estimatedNextAvailableTime").setValue(updatedTime).await()
-            Log.d("updateNextAvailableTime","Successfully updated next available time")
         }
         catch (e:Exception){
             Log.d("CycleFirebaseService","updateAvailableTime Error Occurred when updating availableTIme")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"updateNextAvailableTime CycleFirebaseService","$e")
         }
     }
 
@@ -204,11 +193,10 @@ class CycleFirebaseService @Inject constructor(
         try {
             val snapshot = cyclesRef.child(cycleUid)
             snapshot.child("booked").setValue(value).await()
-            Log.d("updateCycleBooked","CycleFireBaseService Successfully updated",)
         }
         catch (e:Exception){
             Log.e("updateCycleBooked","cycleFirebaseService Error Occurred")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"updateCycleBooked CycleFirebaseService","$e")
         }
     }
     suspend fun updateBookingHistory(cycleUid:String,scheduleUid:String){
@@ -216,7 +204,6 @@ class CycleFirebaseService @Inject constructor(
         cycleRef.child("bookingHistory").get().addOnSuccessListener { snapshot ->
             val currentHistory = snapshot.getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
 
-            // Create an updated list
             val updatedHistory = currentHistory.toMutableList()
             updatedHistory.add(scheduleUid)
 
@@ -227,11 +214,11 @@ class CycleFirebaseService @Inject constructor(
                 }
                 .addOnFailureListener { e ->
                     Log.e("Firebase", "Failed to update booking history", e)
-                    throw e
+                    throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"updateBookingHistory CycleFirebaseService"," Error While Updating BookingHistory Cycle $e")
                 }
         }.addOnFailureListener { e ->
             Log.e("Firebase", "Failed to fetch booking history", e)
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"updateBookingHistory CycleFirebaseService","Error While Fetching BookingHistory Cycle $e")
         }
     }
 }

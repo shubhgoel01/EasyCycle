@@ -2,14 +2,12 @@ package com.example.easycycle.Worker
 
 import android.content.Context
 import android.util.Log
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.hilt.work.HiltWorker
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -17,11 +15,9 @@ import com.example.easycycle.calculateEstimatedCost
 import com.example.easycycle.data.Enum.ScheduleState
 import com.example.easycycle.data.remote.CycleFirebaseService
 import com.example.easycycle.data.remote.StudentFirebaseService
-import com.example.easycycle.presentation.viewmodel.UserViewModel
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
 
 @HiltWorker
 class CycleStateWorker @AssistedInject constructor(

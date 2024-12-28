@@ -30,17 +30,3 @@ data class AvailableCycleDataState(
     var errorMessage:String = "",
     val list: List<Cycle> = listOf()
 )
-
-data class allCycleDataState(
-    var isLoading:Boolean = true,
-    var error:Boolean = false,
-    var errorMessage:String = "",
-    val list: List<Cycle> = listOf()
-)
-
-data class bookCycle(
-    var isLoading:Boolean = true,
-    var error:Boolean = false,
-    var errorMessage:String = "",
-    var cycle:Cycle? = null
-)

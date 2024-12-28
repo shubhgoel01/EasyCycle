@@ -1,7 +1,6 @@
 package com.example.easycycle.presentation.ui
 
 import android.util.Log
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,9 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -32,15 +28,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.easycycle.R
 import com.example.easycycle.data.Enum.Location
 import com.example.easycycle.data.model.Cycle
-import com.example.easycycle.data.model.allCycleDataState
+import com.example.easycycle.data.model.ResultState
+import com.example.easycycle.presentation.navigation.navigateToErrorScreen
 import com.example.easycycle.presentation.viewmodel.CycleViewModel
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
-import java.nio.file.WatchEvent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -52,37 +47,39 @@ fun AllCyclesScreen(
     navController: NavController,
     onClick:(cycleId:String)->Unit
 ) {
-    val allCycleDataState by cycleViewModel.getAllCycleDataState.collectAsState()
+    val allCycleDataState = cycleViewModel.getAllCycleDataState.collectAsState()
 
     // DisposableEffect to add/remove the Firebase listener
     DisposableEffect(Unit) {
-        Log.d("allCyclesScreen", "Inside DisposableEffect")
         cycleViewModel.getAllCyclesAndAddListener(Location.NILGIRI)
         sharedViewModel.startLiveIcon()
 
         onDispose {
-            Log.d("AllCyclesScreen","Inside onDispose")
             cycleViewModel.getAllCyclesRemoveListener(Location.NILGIRI)
             sharedViewModel.stopLiveIcon()
-            //TODO decide if while navigating away do we need to clear allCycleDataSTate as in case of while Booking the cycle
         }
     }
 
-    when {
-        allCycleDataState.isLoading -> {
-            Log.d("AllCyclesScreen","Loading")
-            LoadingPage()
+    when(val state = allCycleDataState.value) {
+        is ResultState.Loading -> {
+            if(state.isLoading) {
+                LoadingPage()
+            }
+            else{
+                navigateToErrorScreen(navController,true,"AllCyclesScreen 1")
+            }
         }
-        allCycleDataState.error -> {
-            //ErrorScreen(message = allCycleDataState.errorMessage) // Replace with your ErrorScreen Composable
-            Log.d("AllCyclesScreen","ErrorOccurred here${allCycleDataState.error}")
+        is ResultState.Error -> {
+            navigateToErrorScreen(navController,false,"AllCyclesScreen 2")
         }
-        else -> {
-            Log.d("AllCyclesScreen","Inside Else Block")
-            val bookedCycles = allCycleDataState.list.filter { it.booked }.sortedBy { it.cycleStatus.estimatedNextAvailableTime }
-            val availableCycles = allCycleDataState.list.filter { !it.booked }.sortedByDescending { it.underProcess }
+        is ResultState.Success -> {
+            val cyclesList = (allCycleDataState.value as ResultState.Success).data!!
+            val bookedCycles = cyclesList.filter { it.booked }.sortedBy { it.cycleStatus.estimatedNextAvailableTime }
+            val availableCycles = cyclesList.filter { !it.booked }.sortedByDescending { it.underProcess }
 
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(top=20.dp)) {
+            LazyColumn(modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 20.dp)) {
                 // Header for Available Cycles
                 if (availableCycles.isNotEmpty()) {
                     item {

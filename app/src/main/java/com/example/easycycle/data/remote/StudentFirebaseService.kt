@@ -12,15 +12,14 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.easycycle.Worker.CycleStateWorker
 import com.example.easycycle.Worker.ReturnOrCancelWorker
+import com.example.easycycle.data.Enum.ErrorType
 import com.example.easycycle.data.Enum.ScheduleState
+import com.example.easycycle.data.model.AppErrorException
+import com.example.easycycle.data.model.ResultState
 import com.example.easycycle.data.model.Schedule
 import com.example.easycycle.data.model.Student
-import com.example.easycycle.data.model.StudentDataState
 import com.example.easycycle.data.model.User
-import com.example.easycycle.data.model.userDataState
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
-import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -50,55 +49,47 @@ class StudentFirebaseService @Inject constructor(
         val studentRef = studentsRef.child(student.registrationNumber)
         try {
             studentRef.setValue(student).await()
-            Log.d("Admin", "Student added successfully")
         } catch (e: Exception) {
-            Log.d("Admin", "Failed to add student data: ${e.message}")
-            throw e
+            Log.e("Admin", "Failed to add student data: ${e.message}")
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"addStudent StudentFirebaseService","$e")
         }
     }
 
 
     suspend fun studentExist(student:Student):Boolean   //Return true if user already exist otherwise false , if error occurs then re-throws the error
     {
-        Log.d("Login","Checking If student Exist")
-        var snapshot: DataSnapshot? =null
+        val snapshot: DataSnapshot?
         try {
-             if(student.registrationNumber!="")
-                snapshot = studentsRef.orderByChild("registrationNumber").equalTo(student.registrationNumber).get().await()
+            snapshot = if(student.registrationNumber!="")
+                studentsRef.orderByChild("registrationNumber").equalTo(student.registrationNumber).get().await()
             else
-                snapshot = studentsRef.orderByChild("email").equalTo(student.email).get().await()
+                studentsRef.orderByChild("email").equalTo(student.email).get().await()
 
             if(snapshot!=null && snapshot.exists())
-            {
-                Log.d("Login","Student exists - Checked Successfully")
                 return true
-            }
+            else throw AppErrorException(ErrorType.STUDENT_NOT_AUTHORIZED,"studentExist StudentFirebaseExist","User Not Found")
+            // IF USER IS NOT AUTHORIZED TO USE APP, SIMPLY THROW ERROR
         }
         catch (e:Exception){
-            Log.d("Login","Error Occurred")
-            Log.d("Login","Student exists - Checking Failed")
-            throw e
+            Log.d("Login","Error Occurred $e")
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"studentExist StudentFirebaseExist","$e")
         }
-        Log.d("Login","Student does not exist")
-        return false
     }
 
 
-    suspend fun fetchStudentData(registrationNumber:String,onComplete:(updatedStudentDataState:StudentDataState)->Unit)  //by registration number or email
+    suspend fun fetchStudentData(registrationNumber:String,onComplete:(updatedStudentDataState: ResultState<Student>)->Unit)  //by registration number or email
     {
         val currStudent: Student?
-        var updatedStudentDataState = StudentDataState()
+        var updatedStudentDataState : ResultState<Student> = ResultState.Loading(true)
 
         try {
-            var snapshot = studentsRef.child(registrationNumber).get().await()
+            val snapshot = studentsRef.child(registrationNumber).get().await()
+            if(!snapshot.exists())
+                throw AppErrorException(ErrorType.DATA_NOT_FOUND,"fetchStudentData StudentFirebaseService","Snapshot Does Not Exist")
             currStudent= snapshot.getValue(Student::class.java)
 
             if(currStudent!=null){
-                updatedStudentDataState=updatedStudentDataState.copy(
-                    isLoading = false,
-                    error = false,
-                    student = currStudent
-                )
+                updatedStudentDataState = ResultState.Success(currStudent)
                 if(!currStudent.isRegistered){
                     val snapshot2 = studentsRef.child(registrationNumber).child("isRegistered")
                     try {
@@ -106,31 +97,20 @@ class StudentFirebaseService @Inject constructor(
                     }
                     catch (e:Exception){
                         Log.d("Student","error while setting isRegistered field")
-                        throw e
+                        //TODO Handle This Error Accordingly This Error Is Not Much Important
                     }
                 }
+                onComplete(updatedStudentDataState)
             }
-
-            else updatedStudentDataState=updatedStudentDataState.copy(
-                isLoading = false,
-                error = true,
-               errorMessage = "Student Data Is Empty"
-            )
-            Log.d("Student","Details fetched successfully")
+            else throw AppErrorException(ErrorType.DATA_FETCHED_IS_NULL,"fetchStudentData StudentFirebaseService","Data Not Found")
         }
         catch (e:Exception){
-            updatedStudentDataState=updatedStudentDataState.copy(
-                isLoading = false,
-                error = true,
-                errorMessage = "Error Occurred while fetching student data $e"
-            )
-            Log.d("Student","error while fetching data")
+            Log.d("Student","error while fetching data $e")
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"fetchStudentData StudentFirebaseService","$e")
         }
-        onComplete(updatedStudentDataState)
     }
 
     suspend fun getEmailFromStudentRegistration(registrationNumber:String):Student{
-        Log.d("studentFirebaseService","Inside getEmailFromStudentRegistration")
         val student = Student()
         try {
             var snapshot=studentsRef.orderByChild("registrationNumber").equalTo(registrationNumber).get().await()
@@ -142,8 +122,8 @@ class StudentFirebaseService @Inject constructor(
         }
         catch (e:Exception)
         {
-            Log.d("studentFirebaseService","Error Occurred")
-            throw e
+            Log.d("studentFirebaseService","Error Occurred $e")
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"getEmailFromStudentRegistration StudentFirebaseService","$e")
         }
     }
 
@@ -151,80 +131,47 @@ class StudentFirebaseService @Inject constructor(
         return try {
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
             val uid = authResult.user?.uid
-            // Registration successful
-            Log.d("Register", "New User registered with UID: $uid")
 
             if (uid == null) {
                 Log.d("Register", "UID returned by Firebase Authentication is null")
-                throw Exception("UID returned by Firebase Authentication is null")
+                throw AppErrorException(ErrorType.DATA_FETCHED_IS_NULL,"register StudentFirebaseService","UID returned by Firebase Authentication is null")
             }
-
             uid
-        } catch (e: FirebaseAuthWeakPasswordException) {
-            Log.e("Register", "Weak password: ${e.reason}", e)
-            throw e
-        } catch (e: FirebaseAuthInvalidCredentialsException) {
-            Log.e("Register", "Invalid email format: ${e.message}", e)
-            throw e
-        } catch (e: FirebaseAuthUserCollisionException) {
-            Log.e("Register", "Email already in use: ${e.message}", e)
-            throw e
-        } catch (e: Exception) {
-            Log.e("Register", "Unexpected error occurred during registration", e)
-            throw e
+        }
+        catch (e: FirebaseAuthWeakPasswordException) {
+            throw AppErrorException(ErrorType.WEAK_PASSWORD_ERROR,"register StudentFirebaseService","$e")
+        }
+        catch (e: Exception) {
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"register StudentFirebaseService","$e")
         }
     }
 
 
-    suspend fun fetchUserDetails(userUid:String , onComplete:(userDataState:userDataState)->Unit){
-        Log.d("User","FetchUserDetails fetchUserDetails")
-        var userDataState: userDataState
+    suspend fun fetchUserDetails(userUid:String , onComplete:(ResultState.Success<User>)->Unit){
         try {
             val snapshot = userRef.child(userUid).get().await()
             if(!snapshot.exists())
-            {
-                userDataState=userDataState(
-                    isLoading = false,
-                    error = true,
-                    errorMessage = "User does not exist in database"
-                )
-            }
+                throw AppErrorException(ErrorType.DATA_NOT_FOUND,"fetchUserDetails StudentFirebaseService","User does not exist in database")
+
             val user: User? = snapshot.getValue(User::class.java)
-            userDataState = if(user == null) {
-                userDataState(
-                    isLoading = false,
-                    error = true,
-                    errorMessage = "User is null in database"
-                )
-            } else{
-                userDataState(
-                    isLoading = false,
-                    error = false,
-                    user = user
-                )
-            }
-            Log.d("User","Details fetched successfully $user")
+            if(user == null)
+                throw AppErrorException(ErrorType.DATA_NOT_FOUND,"fetchUserDetails StudentFirebaseService","User is Null in database")
+            Log.d("fetchUserDetails","CallingOnComplete")
+            onComplete(ResultState.Success(user))
         }
         catch (e:Exception)
         {
-            userDataState=userDataState(
-                isLoading = false,
-                error = true,
-                errorMessage = "Error Occurred during fetching user details $e"
-            )
-            Log.d("User","error while fetching details")
+            Log.d("User","error while fetching details $e")
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"fetchUserDetails StudentFirebaseService","$e")
         }
-        onComplete(userDataState)
     }
 
     suspend fun getUserRegistrationNumberFromEmail(email:String):Student{
-        Log.d("studentFirebaseService","Inside getUserRegistrationNumberFromEmail")
         val student = Student()
         try {
             var snapshot=studentsRef.orderByChild("email").equalTo(email).get().await()
             snapshot=snapshot.children.first()
 
-            Log.d("getUserRegistrationNumberFromEmail","User registrationNumber fetched successfully")
             student.registrationNumber= snapshot.child("registrationNumber").getValue(String::class.java)!!
             student.isRegistered= snapshot.child("isRegistered").getValue(Boolean::class.java)!!
             return student
@@ -232,7 +179,7 @@ class StudentFirebaseService @Inject constructor(
         catch (e:Exception)
         {
             Log.d("getUserRegistrationNumberFromEmail","error occurred")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"getUserRegistrationNumberFromEmail StudentFirebaseService","$e")
         }
     }
 
@@ -244,72 +191,51 @@ class StudentFirebaseService @Inject constructor(
         }
         catch (e:Exception){
             Log.e("addUser","Error while adding new user")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"addUser StudentFirebaseService","$e")
         }
     }
 
-    suspend fun fetchScheduleId(userUid: String): String? {
-        Log.d("schedule", "Inside fetchScheduleId Getting schedule id for user uid= $userUid")
-        var scheduleId: String? = null
+
+    //Used By Worker
+    suspend fun fetchScheduleId(userUid: String): String {
+        var scheduleId: String?
         val ref = database.child("User").child(userUid).child("scheduleId")
         try {
             val snapshot = ref.get().await()
-            if (snapshot.exists()) {
-                Log.d("ScheduleId", "SnapshotExists")
+            if (snapshot.exists())
                 scheduleId = snapshot.getValue(String::class.java)
-            } else {
-                Log.d("ScheduleId", "Snapshot does not exist")
-            }
+            else
+                throw AppErrorException(ErrorType.DATA_NOT_FOUND,"fetchScheduleId StudentFirebaseService","Snapshot does not exist")
+
+            if(scheduleId == null)
+                    throw AppErrorException(ErrorType.DATA_FETCHED_IS_NULL,"fetchScheduleId StudentFirebaseService","ScheduleId fetched is null")
+
         } catch (e: Exception) {
             Log.d("studentFirebaseService fetchScheduleId", "Error occurred $e")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"addUser StudentFirebaseService","$e")
         }
 
         return scheduleId
     }
 
-
-    //TODO Add value event listener
-//    suspend fun fetchSchedule(scheduleId: String,onComplete:(Schedule?)->Unit) {
-//        Log.d("fetchSchedule", "Fetching schedule with ID: $scheduleId")
-//
-//        Log.d("Schedule","Entered scheduleId $scheduleId")
-//        val scheduleRef = database.child("Schedule").child(scheduleId)
-//
-//        try {
-//            val snapshot = scheduleRef.get().await()
-//            if (snapshot.exists()) {
-//                val schedule = snapshot.getValue(Schedule::class.java)
-//                onComplete(schedule)
-//            } else {
-//                Log.e("fetchSchedule","Student Firebase Service - Schedule not found with ID: $scheduleId")
-//                throw Exception("Schedule not found with ID: $scheduleId")
-//            }
-//        } catch (e: Exception) {
-//            Log.e("fetchSchedule", "Error fetching schedule with ID: $scheduleId", e)
-//            throw Exception("Error fetching schedule with ID: $scheduleId Error : $e")
-//        }
-//    }
-
     private var scheduleDatabaseListener: ValueEventListener? = null
-    suspend fun fetchSchedule(scheduleId: String, onDataChange: (Schedule?) -> Unit) {
+    suspend fun fetchSchedule(scheduleId: String, onDataChange: (Schedule) -> Unit) {
         val scheduleRef = database.child("Schedule").child(scheduleId)
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 if (snapshot.exists()) {
                     val schedule = snapshot.getValue(Schedule::class.java)
-                    Log.d("fetchScheduleAndAddListener", "Schedule updated: $schedule")
-                    onDataChange(schedule)
-                } else {
-                    Log.w("fetchScheduleAndAddListener", "Schedule not found with ID: $scheduleId")
-                    onDataChange(null)
-                }
-            }
+                    if(schedule == null)
+                        throw AppErrorException(ErrorType.DATA_FETCHED_IS_NULL,"fetchSchedule StudentFirebaseService","Schedule Fetched or updated Is null")
 
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("fetchScheduleAndAddListener", "Error fetching schedule with ID: $scheduleId. Error: ${error.message}")
-                onDataChange(null)
+                    onDataChange(schedule)
+                } else
+                    throw AppErrorException(ErrorType.DATA_NOT_FOUND,"fetchSchedule StudentFirebaseService","Schedule not found with ID: $scheduleId")
+            }
+            override fun onCancelled(e: DatabaseError) {
+                Log.e("fetchScheduleAndAddListener", "Error fetching schedule with ID: $scheduleId. Error: ${e.message}")
+                throw AppErrorException(ErrorType.CANCELLED,"fetchSchedule StudentFirebaseService",e.message)
             }
         }
 
@@ -330,10 +256,12 @@ class StudentFirebaseService @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e("removeScheduleListener", "Error occurred while removing listener: ${e.message}")
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"removeScheduleListener StudentFirebaseService","$e")
         }
     }
 
 
+    //Used By Worker
     @RequiresApi(Build.VERSION_CODES.O)
     fun scheduleStartCheck(userUid:String, scheduleUid: String, startTime:Long, context: Context, cycleUid:String) {
         val delayMillis =startTime - System.currentTimeMillis()
@@ -358,85 +286,81 @@ class StudentFirebaseService @Inject constructor(
         Log.d("Worker","LastLine")
     }
 
+    //Used By worker
     suspend fun startTimeAndExpectedTime(scheduleUid:String):Pair<Long,Long>{
         val scheduleRef = database.child("Schedule").child(scheduleUid)
         val scheduleEstimateTimeRef = scheduleRef.child("estimateTime")
         val estimateTimeSnapshot = scheduleEstimateTimeRef.get().await()
         val startTimeRef = scheduleRef.child("startTime")
 
-        var estimateTime : Long? = null
-        if(estimateTimeSnapshot.exists()){
+        val estimateTime : Long?
+        if(estimateTimeSnapshot.exists())
             estimateTime = estimateTimeSnapshot.getValue(Long::class.java)
-        }
         else{
             Log.d("Worker","Error while fetching the schedule Status")
-            throw Exception("Error while fetching the schedule Status")
+            throw AppErrorException(ErrorType.DATA_NOT_FOUND,"startTimeAndExpectedTime StudentFirebaseService Worker","estimateTimeSnapshot does not exist")
         }
 
         val startTimeSnapshot = startTimeRef.get().await()
-        var StartTime : Long? = null
-        if(startTimeSnapshot.exists()){
-            StartTime = startTimeSnapshot.getValue(Long::class.java)
-        }
+        val startTime : Long?
+
+        if(startTimeSnapshot.exists())
+            startTime = startTimeSnapshot.getValue(Long::class.java)
         else{
             Log.d("Worker","Error while fetching the schedule startTime")
-            throw Exception("Error while fetching the schedule startTime")
+            throw AppErrorException(ErrorType.DATA_NOT_FOUND,"startTimeAndExpectedTime StudentFirebaseService Worker","startTimeSnapshot does not exist")
         }
 
-        if(StartTime == null || estimateTime==null){
+        if(startTime == null || estimateTime==null){
             Log.d("Worker","StartTime or estimateTime is null")
-            throw Exception("StartTime or estimateTime is null")
+            throw AppErrorException(ErrorType.DATA_FETCHED_IS_NULL,"startTimeAndExpectedTime StudentFirebaseService Worker","StartTime or estimateTime is null")
         }
 
-        return Pair(StartTime,estimateTime)
+        return Pair(startTime,estimateTime)
     }
 
     // Function to update the state of schedule called within worker eg. 'from booked to ongoing'
+    //Used By Worker
     suspend fun updateScheduleState(scheduleUid:String, newState: ScheduleState){
         val scheduleRef = database.child("Schedule").child(scheduleUid)
         val scheduleStateRef = scheduleRef.child("status").child("status")
         try {
             scheduleStateRef.setValue(newState).await()
-            Log.d("Worker","Successfully updated schedule state")
         }
         catch (e:Exception){
             Log.d("Worker","Failed to update the schedule state $e")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"updateScheduleState StudentFirebaseService Worker","$e")
         }
     }
 
     suspend fun updatePrevBalance(userUid:String, balance:Long){
-        val scheduleRef = database.child("Schedule")
         val prevBalanceRef=userRef.child(userUid).child("prevBalance")
 
         try {
             prevBalanceRef.setValue(balance).await()
-            Log.d("Worker","Previous Balance Updated in user")
         }
         catch (e:Exception){
             Log.d("Worker","Error while updating the prevBalance in user $e")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"updateScheduleState StudentFirebaseService Worker","$e")
         }
     }
 
-    suspend fun createSchedule(userUid:String, schedule:Schedule) : Pair<String,Long> {
+    suspend fun createSchedule(schedule:Schedule) : Pair<String,Long> {
         val scheduleRef = database.child("Schedule")
-        //val userRef = userRef.child(userUid).child("scheduleId")
         try {
             val scheduleUid = scheduleRef.push().key
 
             if(scheduleUid !=null){
                 schedule.scheduleUid = scheduleUid
                 scheduleRef.child(scheduleUid).setValue(schedule).await()
-                //userRef.setValue(scheduleUid).await()
-                Log.d("Schedule","Created Successfully")
+
                 return Pair(scheduleUid,schedule.startTime)
             }
-            else throw Exception("Schedule Uid is null inside createSchedule")
+            else throw AppErrorException(ErrorType.DATA_FETCHED_IS_NULL,"createSchedule StudentFirebaseService","scheduleId is null")
         }
         catch(e:Exception){
             Log.d("createSchedule","Error occurred when creating a new Schedule $e")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"createSchedule StudentFirebaseService","$e")
         }
     }
 
@@ -450,36 +374,37 @@ class StudentFirebaseService @Inject constructor(
         }
         catch (e:Exception){
             Log.d("startTimer","Error occurred while updating the timer in user")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"startTimer StudentFirebaseService","$e")
         }
     }
 
-    //Function which is called when new schedule is created successfully, updates all the schedule related information in user node
+    //Function is called when new schedule is created successfully, updates all the schedule related information in user node
     suspend fun bookSchedule(userId:String,scheduleId:String){
         try {
             val snapshot = userRef.child(userId).child("scheduleId")
             snapshot.setValue(scheduleId).await()
-            Log.d("bookSchedule studentFirebaseService","Successfully updated schedule related details")
         }
         catch (e:Exception){
             Log.d("bookSchedule studentFirebaseService","error Occurred $e")
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"bookSchedule StudentFirebaseService","$e")
         }
     }
 
+
+    //Used When completing a schedule/ride and simply sets the scheduleId = "" in userNode
     suspend fun updateUserScheduleId(userUid:String,updatedScheduleId:String){
         try{
             val ref = userRef.child(userUid)
             val snapshot = ref.child("scheduleId")
             snapshot.setValue(updatedScheduleId).await()
-            Log.d("updateUserScheduleId","StudentFirebaseService successfully updated")
         }
         catch (e:Exception){
-            Log.d("updateUserScheduleId","StudentFirebaseService successfully updated")
-            throw e
+            Log.d("updateUserScheduleId","StudentFirebaseService Some Error Occurred $e")
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"updateUserScheduleId StudentFirebaseService","$e")
         }
     }
 
+    //User By Worker2
     @RequiresApi(Build.VERSION_CODES.O)
     fun returnOrCancelScheduleWorkerStart(schedule:Schedule, context: Context) {
 
@@ -500,9 +425,10 @@ class StudentFirebaseService @Inject constructor(
             .build()
 
         WorkManager.getInstance(context).enqueue(workRequest)
-        Log.d("Worker2","LastLine")
+        Log.d("Worker2","Worker2 Set Successfully")
     }
 
+    //Used By worker2 - Updates the BookingHistory
     suspend fun updateBookingHistory(userUid:String,scheduleUid:String){
         val cycleRef = userRef.child(userUid)
         cycleRef.child("bookingHistory").get().addOnSuccessListener { snapshot ->
@@ -519,12 +445,11 @@ class StudentFirebaseService @Inject constructor(
                 }
                 .addOnFailureListener { e ->
                     Log.e("Firebase", "Failed to update booking history", e)
-                    throw e
+                    throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"updateBookingHistory StudentFirebaseService","Failed to Update User BookingHistory $e")
                 }
         }.addOnFailureListener { e ->
             Log.e("Firebase", "Failed to fetch booking history", e)
-            throw e
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"updateBookingHistory StudentFirebaseService","Failed to fetch user BookingHistory$e")
         }
     }
-
 }

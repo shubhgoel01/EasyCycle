@@ -110,6 +110,12 @@ dependencies {
     //For serialization and de-serialization
     implementation("com.google.code.gson:gson:2.10.1")
 
+    //dependency for room database
+    val nav_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$nav_version")
+    implementation("androidx.room:room-ktx:$nav_version")
+    kapt ("androidx.room:room-compiler:$nav_version")
+
 }
 kapt {
     correctErrorTypes = true

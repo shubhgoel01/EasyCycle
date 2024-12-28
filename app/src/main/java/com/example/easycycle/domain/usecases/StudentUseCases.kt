@@ -6,14 +6,13 @@ import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import com.example.easycycle.data.model.Schedule
-import com.example.easycycle.data.model.FetchSchedulesDataState
+import com.example.easycycle.data.model.ResultState
 import com.example.easycycle.data.model.Student
-import com.example.easycycle.data.model.StudentDataState
 import com.example.easycycle.data.model.User
-import com.example.easycycle.data.model.userDataState
 import com.example.easycycle.data.remote.CycleFirebaseService
 import com.example.easycycle.data.remote.SharedFirebaseService
 import com.example.easycycle.data.remote.StudentFirebaseService
+import com.example.easycycle.isValidEmail
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -23,19 +22,10 @@ class StudentUseCases @Inject constructor(
     private val cycleDatabase : CycleFirebaseService,
     @ApplicationContext private val context: Context
 ) {
-    suspend fun login (studentLoginData:Student,password:String,onComplete:()->Unit):Boolean
+    suspend fun login (studentLoginData:Student,password:String,onComplete:(String)->Unit)
     {
-        Log.d("Login","Inside StudentUseCases")
-        var flag = false
-        flag = studentDatabase.studentExist(studentLoginData)
-
-        if(!flag)
-        {
-            Log.d("LogIn","Student is Not authorized to use app")
-            return flag
-        }
-
-        Log.d("LogIn","Student is authorized to use app")
+        val flag : Boolean = studentDatabase.studentExist(studentLoginData)
+        // If flag is false, the  automatically throws error
 
         if(studentLoginData.email == "")
         {
@@ -51,32 +41,17 @@ class StudentUseCases @Inject constructor(
             studentLoginData.isRegistered = tempStudent.isRegistered
         }
 
-        if(studentLoginData.isRegistered == true){
-            try {
-                sharedDatabase.signIn(studentLoginData.email,password)
-                onComplete()
-                Log.d("LoginIn","UserLogged In successfully")
-            }
-            catch (e:Exception)
-            {
-                throw e
-            }
+        if(studentLoginData.isRegistered){
+            sharedDatabase.signIn(studentLoginData.email,password)
+            onComplete(studentLoginData.registrationNumber)
         }
         else {
-            try {
-                val userUid = studentDatabase.register(studentLoginData.email, password)
-                studentDatabase.addUser(User(registrationNumber = studentLoginData.registrationNumber),userUid!!)
+            val userUid = studentDatabase.register(studentLoginData.email, password)
+            studentDatabase.addUser(User(registrationNumber = studentLoginData.registrationNumber),userUid)
 
-                sharedDatabase.setUserRole(userUid,"User")
-                onComplete()
-                Log.d("Registration","Successfully created new user and added all fields in database")
-            }
-            catch (e:Exception){
-                throw e
-            }
+            sharedDatabase.setUserRole(userUid,"User")
+            onComplete(studentLoginData.registrationNumber)
         }
-
-        return flag
     }
 
     suspend fun addStudentExecute(context: Context, student: Student){
@@ -100,73 +75,33 @@ class StudentUseCases @Inject constructor(
         }
     }
 
-    suspend fun fetchStudentData(registrationNumber:String,onComplete:(updatedStudentDataState:StudentDataState)->Unit){
+    suspend fun fetchStudentData(registrationNumber:String,onComplete:(updatedStudentDataState: ResultState<Student>)->Unit){
         studentDatabase.fetchStudentData(registrationNumber,onComplete)
     }
 
-    suspend fun fetchUserdata(userUid:String , onComplete:(updatedUserDataState : userDataState)->Unit){
-        Log.d("User","FetchUserDetails UseCases")
+    suspend fun fetchUserdata(userUid:String , onComplete:(updatedUserDataState : ResultState.Success<User>)->Unit){
         studentDatabase.fetchUserDetails(userUid, onComplete)
     }
 
 
 //Can be simplified I can directly pass schedule id in some cases like in myApp
-    suspend fun fetchSchedule(scheduleUid: String, onComplete: (FetchSchedulesDataState) -> Unit) {
+    suspend fun fetchSchedule(scheduleUid: String, onComplete: (ResultState<Schedule>) -> Unit) {
         Log.d("studentUseCases", "Fetching Schedules Data")
-
-        try {
-            studentDatabase.fetchSchedule(scheduleUid){ schedule->
-                if(schedule == null) {
-                    Log.e("fetchSchedule","Student UseCases : Schedule Fetched is null or update got cancelled")
-                    onComplete(
-                        FetchSchedulesDataState(
-                            isLoading = false,
-                            error = true,
-                            errorMessage = "Schedule Fetched Is Null"
-                        )
-                    )
-                }
-                else{
-                    Log.d("fetchSchedule","StudentUseCases : Schedule Fetched Successfully")
-                    Log.d("fetchSchedule","Schedule data : $schedule")
-                    onComplete(
-                        FetchSchedulesDataState(
-                            isLoading = false,
-                            schedule = schedule
-                        )
-                    )
-                }
-            }
-
-        } catch (e: Exception) {
-            Log.d("studentUseCases", "Error occurred when fetching schedule: ${e.message}")
-
-            onComplete(FetchSchedulesDataState(
-                isLoading = false,
-                error = true,
-                errorMessage = "An error occurred while fetching the schedule: ${e.message}"
-            ))
+        studentDatabase.fetchSchedule(scheduleUid){
+            onComplete(ResultState.Success(it))
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun createSchedule(userUid:String, schedule: Schedule, onComplete:(String)->Unit){
-        //TODO later move all these functions to a batchFunction
-        var info : Pair<String, Long>? = null
-        //Info contains two things {scheduleUid, scheduleStartTime}
-        try {
-            info = studentDatabase.createSchedule(userUid, schedule)
-            studentDatabase.bookSchedule(userUid,info.first)
-            cycleDatabase.bookSchedule(info.first,schedule.cycleUid,schedule.estimateTime+schedule.startTime)
-            studentDatabase.scheduleStartCheck(userUid,info.first,info.second,context, schedule.cycleUid)
-            Log.d("createSchedule","All functions completed successfully")
-            //If any function fails then whole process should be reverted, hence better use batchFunctions something like transactions
-            onComplete(info.first)
-        }
-        catch (e:Exception){
-            Log.e("createSchedule","Failed to create schedule")
-            throw e
-        }
+
+        val info : Pair<String, Long>?
+        info = studentDatabase.createSchedule(schedule)
+        studentDatabase.bookSchedule(userUid,info.first)
+        cycleDatabase.bookSchedule(info.first,schedule.cycleUid,schedule.estimateTime+schedule.startTime)
+        studentDatabase.scheduleStartCheck(userUid,info.first,info.second,context, schedule.cycleUid)
+
+        onComplete(info.first)
     }
 
     suspend fun startTimer(userUid:String,cycleUid:String){
@@ -181,15 +116,11 @@ class StudentUseCases @Inject constructor(
 
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun returnOrCancelRide(schedule:Schedule,onComplete:()->Unit){
-        //First Update user
-        //Update cycleField Booked = false according to me no need to update other fields like, scheduleUid, nextAvailableTime in cycle as these will be used only if the cycle is booked
-        //Once this is done Remove the scheduleListener and set schedule to null and move to home screen, and set the worker
-        //In worker - Create a new node in ScheduleHistory, update cycleBookingHistory, deleteSchedule from Schedule Node, update user BookingHistory
         studentDatabase.updateUserScheduleId(schedule.userUid,"")
         cycleDatabase.updateCycleBooked(schedule.cycleUid,false)
         studentDatabase.removeScheduleListener(schedule.scheduleUid)
         studentDatabase.returnOrCancelScheduleWorkerStart(schedule,context)
-        Log.d("returnOrCancelRide","All functions completed")
+
         onComplete()
     }
 }

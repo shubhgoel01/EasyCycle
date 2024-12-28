@@ -12,10 +12,3 @@ data class Student(
     @PropertyName("registrationTimeStamp") var registrationTimeStamp:Long=0L,
     @PropertyName("isRegistered") var isRegistered:Boolean=false,
 )
-
-data class StudentDataState(
-    var isLoading:Boolean=true,
-    var error:Boolean=false,
-    var student:Student= Student(),
-    var errorMessage:String?=null
-)

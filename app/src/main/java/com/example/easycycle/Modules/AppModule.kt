@@ -6,6 +6,8 @@ import com.example.easycycle.Worker.CycleStateWorker
 import com.example.easycycle.data.model.Admin
 import com.example.easycycle.data.remote.AdminFirebaseService
 import com.example.easycycle.data.remote.CycleFirebaseService
+import com.example.easycycle.data.remote.ProfileDao
+import com.example.easycycle.data.remote.ProfileDatabase
 import com.example.easycycle.data.remote.SharedFirebaseService
 import com.example.easycycle.data.remote.StudentFirebaseService
 import com.example.easycycle.domain.usecases.AdminUseCases
@@ -120,6 +122,17 @@ object AppModule {
         @ApplicationContext context: Context
     ): Context {
         return context
+    }
+
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): ProfileDatabase {
+        return ProfileDatabase.getDatabase(context)
+    }
+
+    @Provides
+    fun provideStudentDao(profileDatabase: ProfileDatabase): ProfileDao {
+        return profileDatabase.profileDao()
     }
 }
 

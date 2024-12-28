@@ -14,10 +14,3 @@ data class Admin(
     var activityHistory: List<String> = listOf("Default"),
     var firstLogInTimeStamp:Long=0L
 )
-
-data class adminDataState(
-    var isLoading:Boolean=true,
-    var error:Boolean=false,
-    var AllAdmins:AllAdmins= AllAdmins(),
-    var errorMessage:String?=null
-)

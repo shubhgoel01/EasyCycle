@@ -26,10 +26,3 @@ data class UserEngagement(
     var activityHistory: List<String> = listOf("Default"),
     var totalFeedbackGiven: Int = 0
 )
-
-data class userDataState(
-    var isLoading:Boolean=true,
-    var error:Boolean=false,
-    var user:User= User(),
-    var errorMessage:String?=null
-)

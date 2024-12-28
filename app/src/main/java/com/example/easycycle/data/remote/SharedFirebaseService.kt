@@ -1,15 +1,15 @@
 package com.example.easycycle.data.remote
 
 import android.util.Log
+import com.example.easycycle.data.Enum.ErrorType
 import com.example.easycycle.data.model.Activity
+import com.example.easycycle.data.model.AppErrorException
 import com.example.easycycle.data.model.Schedule
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
-import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -36,27 +36,21 @@ class SharedFirebaseService @Inject constructor(
         return newActivityRef.key
     }
 
-    suspend fun signIn(email:String,password:String):Boolean
+    suspend fun signIn(email:String,password:String)
     {
-        Log.d("SignIn","Trying to sign-in")
-        Log.d("Auth value before login",auth.currentUser.toString())
-        return try {
+        try {
             auth.signInWithEmailAndPassword(email, password).await()
-            Log.d("SignIn","Successful")
-            Log.d("Auth value",auth.currentUser.toString())
             auth.currentUser?.let { Log.d("Auth value", it.uid) }
-            //reloadCurrentUser()
-
-            true
-        } catch (e: FirebaseAuthInvalidUserException) {
+        }
+        catch (e: FirebaseAuthInvalidUserException) {
             Log.e("SignIn", "with email $email not found", e)
-            throw e
-        } catch (e: FirebaseAuthInvalidCredentialsException) {
-            Log.e("SignIn", "Invalid password for email $email", e)
-            throw e
-        } catch (e: Exception) {
-            Log.e("SignIn", "Sign-in failed due to unexpected error: ${e.message}", e)
-            throw e
+            throw AppErrorException( ErrorType.DATA_NOT_FOUND, "signIn SharedFirebaseService","$e" )
+        }
+        catch (e: FirebaseAuthInvalidCredentialsException) {
+            throw AppErrorException( ErrorType.WRONG_EMAIL_PASSWORD, "signIn SharedFirebaseService","$e" )
+        }
+        catch (e: Exception) {
+            throw AppErrorException( ErrorType.UNEXPECTED_ERROR, "signIn SharedFirebaseService","$e" )
         }
     }
 
@@ -86,10 +80,9 @@ class SharedFirebaseService @Inject constructor(
         val userToRoleMapRef = database.child("userToRoleMap").child(userUid)
         try {
             userToRoleMapRef.setValue(role).await()
-            Log.d("setUserRole","Successfully set user role")
         }
         catch (e:Exception){
-            Log.d("setUserRole","Error occurred while setting user role $e")
+            throw AppErrorException(ErrorType.UNEXPECTED_ERROR,"setUserRole SharedFirebaseService","$e")
         }
     }
 

@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun Component_Button(title:String,onClick:()->Unit,modifier:Modifier=Modifier) {
+fun Component_Button(title:String,onClick:()->Unit,modifier:Modifier=Modifier, enabled:Boolean = true) {
     Button(
         onClick = onClick,
         colors= ButtonDefaults.buttonColors(
@@ -22,7 +22,8 @@ fun Component_Button(title:String,onClick:()->Unit,modifier:Modifier=Modifier) {
         elevation = ButtonDefaults.buttonElevation(5.dp),
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),  // Rounded corners for the button,
-        border = BorderStroke(1.dp, Color.Black)
+        border = BorderStroke(1.dp, Color.Black),
+        enabled = enabled
     ) {
         Text(text = title)
     }

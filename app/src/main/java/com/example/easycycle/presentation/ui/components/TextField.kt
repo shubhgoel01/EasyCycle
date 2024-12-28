@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -14,7 +13,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Component_textField(value:String, onOptionChange: (String) -> Unit, modifier:Modifier=Modifier, visualTransformation: VisualTransformation = VisualTransformation.None,label:String, readOnly:Boolean=false) {
     TextField(
@@ -32,13 +30,15 @@ fun Component_textField(value:String, onOptionChange: (String) -> Unit, modifier
         visualTransformation=visualTransformation,
         readOnly = readOnly,
         enabled = !readOnly,
-        colors = TextFieldDefaults.textFieldColors(
+        colors = TextFieldDefaults.colors(
             focusedTextColor = Color.Black, // Text color inside the TextField
             unfocusedTextColor = Color.Gray,
-            containerColor = Color.White, // Background color of the input area
+            focusedContainerColor = Color.White, // Background color of the input area
+            unfocusedContainerColor = Color.White,
+            disabledContainerColor = Color.White,
+            cursorColor = Color.Black, // Cursor color
             focusedIndicatorColor = Color.Black, // Focused indicator color
             unfocusedIndicatorColor = Color.Gray, // Unfocused indicator color
-            cursorColor = Color.Black, // Cursor color
         )
     )
 }

@@ -40,10 +40,3 @@ data class BeforeTime(
     var amountReturned: Double = 0.0        //For future use
 )
 
-
-data class FetchSchedulesDataState(
-    val isLoading: Boolean = true,
-    val error: Boolean = false,
-    var schedule:Schedule? = null,
-    val errorMessage: String = ""
-)

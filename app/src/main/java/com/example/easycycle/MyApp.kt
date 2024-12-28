@@ -5,7 +5,6 @@ import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.easycycle.Worker.CycleStateWorker
 import dagger.assisted.AssistedFactory

@@ -1,0 +1,13 @@
+package com.example.easycycle.data.Enum
+
+enum class ErrorType {
+    DATA_NOT_FOUND,
+    NETWORK_ERROR,
+    UNEXPECTED_ERROR,
+    UNKNOWN_ERROR,
+    DATA_FETCHED_IS_NULL,
+    CANCELLED,
+    STUDENT_NOT_AUTHORIZED,
+    WRONG_EMAIL_PASSWORD,
+    WEAK_PASSWORD_ERROR
+}

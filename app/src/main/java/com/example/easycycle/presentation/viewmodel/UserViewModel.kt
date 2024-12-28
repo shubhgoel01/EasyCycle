@@ -1,22 +1,27 @@
 package com.example.easycycle.presentation.viewmodel
 
+import android.content.Context
 import android.os.Build
-import android.util.Log
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.easycycle.data.Enum.ErrorType
+import com.example.easycycle.data.model.AppErrorException
 import com.example.easycycle.data.model.Schedule
-import com.example.easycycle.data.model.FetchSchedulesDataState
 import com.example.easycycle.data.model.ResultState
-import com.example.easycycle.data.model.StudentDataState
-import com.example.easycycle.data.model.userDataState
+import com.example.easycycle.data.model.User
+import com.example.easycycle.data.remote.Profile
 import com.example.easycycle.domain.usecases.StudentUseCases
+import com.example.easycycle.logErrorOnLogcat
+import com.example.easycycle.logInformationOnLogcat
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -28,44 +33,30 @@ class UserViewModel @Inject constructor(
     //To return or cancel the schedule
     private val _returnOrCancelSchedule = MutableStateFlow<ResultState<Schedule>>(ResultState.Loading(false))
     val returnOrCancelSchedule: StateFlow<ResultState<Schedule>> = _returnOrCancelSchedule
-    fun updateReturnOrCancelSchedule(it:ResultState<Schedule>){
-        Log.d("userViewModel","inside updateReturnOrCancelSchedule")
-        _returnOrCancelSchedule.value = it
+    fun updateReturnOrCancelSchedule(value:ResultState<Schedule>){
+        _returnOrCancelSchedule.value = value
     }
 
-    private var _studentDataState = MutableStateFlow(StudentDataState())
-    var studentDataState: StateFlow<StudentDataState> = _studentDataState
-    fun updateStudentDataState(updatedUserDataState : StudentDataState){
-        Log.d("Student","Updating student details")
-        _studentDataState.value=_studentDataState.value.copy(
-            isLoading =updatedUserDataState.isLoading,
-            error = updatedUserDataState.error,
-            student=updatedUserDataState.student,
-            errorMessage =updatedUserDataState.errorMessage
-        )
-        Log.d("User","Updated student details ${_studentDataState.value}")
+//    private var _studentDataState = MutableStateFlow<ResultState<Student>>(ResultState.Loading(false))
+//    var studentDataState: StateFlow<ResultState<Student>> = _studentDataState
+//    fun updateStudentDataState(value : ResultState<Student>){
+//        _studentDataState.value = value
+//    }
+
+    private var _userDataState = MutableStateFlow<ResultState<User>>(ResultState.Loading(false))
+    var userDataState:StateFlow<ResultState<User>> = _userDataState
+    fun updateUserDataState(value:ResultState<User>){
+        _userDataState.value = value
     }
 
-    private var _userDataState = MutableStateFlow(userDataState())
-    var userDataState:StateFlow<userDataState> = _userDataState
-
-    private var _scheduleDataState = MutableStateFlow(FetchSchedulesDataState())
-    var scheduleDataState : StateFlow<FetchSchedulesDataState> = _scheduleDataState
-    fun updateScheduleDataState(newScheduleDataState:FetchSchedulesDataState){
-        Log.d("updateScheduleDataState","ScheduleDataState Updated")
-
-        _scheduleDataState.value = _scheduleDataState.value.copy(
-            isLoading = newScheduleDataState.isLoading,
-            error = newScheduleDataState.error,
-            schedule = newScheduleDataState.schedule,
-            errorMessage =  newScheduleDataState.errorMessage
-        )
-        Log.d("Schedule Updated Value",_scheduleDataState.value.toString())
+    private var _scheduleDataState = MutableStateFlow<ResultState<Schedule>>(ResultState.Loading(false))
+    var scheduleDataState : StateFlow<ResultState<Schedule>> = _scheduleDataState
+    fun updateScheduleDataState(value:ResultState<Schedule>){
+        _scheduleDataState.value = value
     }
 
     private var _extendedFare = MutableStateFlow<Long>(0)
     var extendedFare : StateFlow<Long> = _extendedFare
-
     fun updateExtendedFare(value:Long){
         _extendedFare.value = value
     }
@@ -76,51 +67,104 @@ class UserViewModel @Inject constructor(
         _createScheduleState.value = value
     }
 
-    fun fetchStudentDetails(registrationNumber:String){
-        viewModelScope.launch(Dispatchers.IO) {
-
-            studentUseCases.fetchStudentData(registrationNumber){
-                updateStudentDataState(it)
-            }
-        }
-    }
-
-    fun fetchUserDetails(userUid:String){
-        Log.d("User","FetchUserDetails ViewModel")
-        viewModelScope.launch(Dispatchers.IO) {
-            studentUseCases.fetchUserdata(userUid){updatedUserDataState->
-                Log.d("User","Updating user details")
-                _userDataState.value = _userDataState.value.copy(
-                    isLoading = updatedUserDataState.isLoading,
-                    error=updatedUserDataState.error,
-                    user=updatedUserDataState.user,
-                    errorMessage = updatedUserDataState.errorMessage
-                )
-                Log.d("User","Updated user details ${userDataState.value.user}")
-                Log.d("User","Updated user details ${userDataState.value.error}")
-                Log.d("User","Updated user details ${userDataState.value.isLoading}")
-            }
-        }
-    }
-
-
-
-    fun fetchSchedule(scheduleUid:String){
-        Log.d("schedule","Inside fetchSchedule userViewModel")
-        viewModelScope.launch(Dispatchers.IO) {
-            //First clear any previous data to avoid false information
-            updateScheduleDataState(FetchSchedulesDataState())
-            studentUseCases.fetchSchedule(scheduleUid){
-                updateScheduleDataState(it)
-            }
-        }
-    }
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun createSchedule(schedule: Schedule,onComplete:(ResultState<Schedule>)->Unit){
-        //Clear Previous ScheduleDataState to ensure that always updated data is shown
-        _scheduleDataState.value = FetchSchedulesDataState()
+    fun fetchStudentDetails(context:Context,registrationNumber:String, onComplete:(ResultState<Profile>)->Unit, onError:(ResultState<Profile>)->Unit){
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                logInformationOnLogcat("Profile","Fetching Student Details")
+                studentUseCases.fetchStudentData(registrationNumber){
+                    val data = (it as ResultState.Success).data!!
+                    onComplete(ResultState.Success(Profile(
+                        registrationNumber = data.registrationNumber,
+                        name = data.name,
+                        email = data.email,
+                        branch = data.branch,
+                        imageURL = data.imageURL,
+                        phone = data.phone,
+                        loginTimeStamp = data.registrationTimeStamp,
+                        userType = "user"
+                    )))
+                }
+            }
+            catch (e:AppErrorException){
+                logErrorOnLogcat("Profile",e)
+                onError(ResultState.Error(e))
+                when(e.type){
+                    ErrorType.DATA_FETCHED_IS_NULL -> Toast.makeText(context,"Data Fetched Is Null",Toast.LENGTH_SHORT).show()
+                    ErrorType.DATA_NOT_FOUND -> {
+                        //TODO HERE LOG OUT THE USER
+                        Toast.makeText(context, "Your Data Not Found", Toast.LENGTH_SHORT).show()
+                    }
+                    ErrorType.UNEXPECTED_ERROR -> Toast.makeText(context, "Some Unexpected Error Occurred", Toast.LENGTH_SHORT).show()
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    fun fetchUserDetails(userUid:String, context : Context){
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                logInformationOnLogcat("UserDetails","Fetching User Details")
+                studentUseCases.fetchUserdata(userUid){value->
+                    _userDataState.value = value
+                }
+            }
+            catch (e:AppErrorException){
+                logErrorOnLogcat("UserDetails",e)
+                when(e.type){
+                    ErrorType.DATA_NOT_FOUND -> {
+                        withContext(Dispatchers.Main){
+                            Toast.makeText(context,"User Not Found",Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    ErrorType.UNEXPECTED_ERROR ->{
+                        withContext(Dispatchers.Main){
+                            Toast.makeText(context,"Some Internal Error Occurred",Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    else ->{}
+                }
+                _userDataState.value = ResultState.Error(e)
+            }
+        }
+    }
+
+    fun fetchSchedule(context:Context, scheduleUid:String){
+        try {
+            logInformationOnLogcat("Schedule","Fetching Schedule")
+            viewModelScope.launch(Dispatchers.IO) {
+                studentUseCases.fetchSchedule(scheduleUid){
+                    updateScheduleDataState(it)
+                }
+            }
+        }
+        catch (e:AppErrorException){
+            logErrorOnLogcat("Schedule",e)
+            when(e.type){
+                ErrorType.DATA_FETCHED_IS_NULL -> {
+                    Toast.makeText(context,"Error While Fetching Data",Toast.LENGTH_SHORT).show()
+                    updateScheduleDataState(ResultState.Error(e))
+                }
+                ErrorType.DATA_NOT_FOUND ->{
+                    //TODO MOVE TO ERROR SCREEN
+                    Toast.makeText(context,"No Booked Schedule",Toast.LENGTH_SHORT).show()
+                    updateScheduleDataState(ResultState.Loading(false))
+                }
+                else -> {
+                    //Move To HomeScreen
+                    Toast.makeText(context,"Session Expired",Toast.LENGTH_SHORT).show()
+                    updateScheduleDataState(ResultState.Error(e))
+                }
+            }
+        }
+    }
+
+    //----------------------------------------------------------------------------------Refactored Till Here
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun createSchedule(context:Context,schedule: Schedule,onComplete:(ResultState<Schedule>)->Unit){
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                logInformationOnLogcat("Schedule","Creating Schedule")
                 studentUseCases.createSchedule(
                     schedule.userUid,
                     schedule,
@@ -128,13 +172,14 @@ class UserViewModel @Inject constructor(
                         onComplete(ResultState.Success(schedule.copy(
                             scheduleUid = scheduleUid
                         )))
-                        fetchSchedule(scheduleUid)
+                        fetchSchedule(context,scheduleUid)
                     }
                 )
             }
-            catch (e:Exception){
-                onComplete(ResultState.Error("Some Error Occurred While creating schedule $e"))
-                Log.d("createSchedule","UserViewModel Some error Occurred somewhere")
+            catch (e:AppErrorException){
+                logErrorOnLogcat("bookSchedule",e)
+                Toast.makeText(context,"Some Unexpected Error Occurred",Toast.LENGTH_SHORT).show()
+                _createScheduleState.value = ResultState.Error(e)
             }
         }
     }
@@ -142,25 +187,24 @@ class UserViewModel @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.O)
     fun returnOrCancelRide(schedule:Schedule){
 
-        //Now if success then simply move to the home screen
-        _returnOrCancelSchedule.value = ResultState.Loading(true)
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                logInformationOnLogcat("Schedule","Returning Or Cancelling Schedule")
                 studentUseCases.returnOrCancelRide(
                     schedule,
                     onComplete = {
-                        Log.d("returnOrCancelRide","OnComplete Called")
-                        _scheduleDataState.value = FetchSchedulesDataState(isLoading = false)
+                        _scheduleDataState.value = ResultState.Loading(false)
+                        //Also Update UserDataState
+                        //Also update ReserveAvailableCycleState and createScheduleState if needed
                         _returnOrCancelSchedule.value = ResultState.Success(null)
-                        Log.d("returnOrCancelRide","updated _returnOrCancelSchedule")
                     }
                 )
             }
-            catch (e:Exception){
-                Log.d("returnOrCancelRide","Could Not complete the process")
-                Log.d("returnOrCancelRide","$e")
-                _returnOrCancelSchedule.value = ResultState.Error(e.toString())
+            catch (e:AppErrorException){
+                logErrorOnLogcat("returnOrCancelRide",e)
+                _returnOrCancelSchedule.value = ResultState.Error(e)
             }
         }
     }
+
 }

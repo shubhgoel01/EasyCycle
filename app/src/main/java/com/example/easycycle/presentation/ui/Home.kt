@@ -26,7 +26,6 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,62 +47,132 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.easycycle.data.model.Student
 import com.example.easycycle.R
 import com.example.easycycle.calculateTimeElapsed
 import com.example.easycycle.data.Enum.ScheduleState
 import com.example.easycycle.data.model.Schedule
-import com.example.easycycle.data.model.FetchSchedulesDataState
+import com.example.easycycle.data.model.ResultState
+import com.example.easycycle.data.remote.Profile
 import com.example.easycycle.formatTimestamp
-import com.example.easycycle.presentation.navigation.Routes
+import com.example.easycycle.presentation.navigation.navigateToEachScheduleDetailScreen
+import com.example.easycycle.presentation.navigation.navigateToErrorScreen
 import com.example.easycycle.presentation.ui.components.Component_tDialogBox
+import com.example.easycycle.presentation.viewmodel.CycleViewModel
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
 import com.example.easycycle.presentation.viewmodel.UserViewModel
-import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+
+//Fetch UserDetails and ScheduleDetails
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun homeScreen(
-    student : Student,
     navController: NavController,
     userViewModel: UserViewModel,
     sharedViewModel: SharedViewModel,
-    snackbarHostState: SnackbarHostState
+    cycleViewModel: CycleViewModel
 ) {
     Log.d("homeScreen","Screen Called")
-    val user = sharedViewModel.currUser.collectAsState()
 
-    val schedulesDataState = userViewModel.scheduleDataState.collectAsState()
-    LaunchedEffect(schedulesDataState.value){
-        //DO Nothing Used to update the state during navigation
-    }
+    val userDataState = userViewModel.userDataState.collectAsState()
+    val scheduleDataState = userViewModel.scheduleDataState.collectAsState()
+    val profileDataState = sharedViewModel.profileDataState.collectAsState()
 
-    Log.d("Home","Entered Home Screen")
-    val imageUrl = student.imageURL.ifEmpty { "default" }
+    val context = LocalContext.current
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(10.dp)
-        ) {
-            Text(text = "Profile", fontWeight = FontWeight.Bold)
-            profile(student,imageUrl)
-            Spacer(modifier = Modifier.height(15.dp))
-            Text(text = "Schedules", fontWeight = FontWeight.Bold)
-
-            Schedules(schedulesDataState.value , navController, userViewModel)
+    LaunchedEffect(userDataState.value){
+        when (val state = userDataState.value){
+            is ResultState.Loading ->{
+                //FETCH USER DETAILS
+                if(state.isLoading) {
+                    Log.d("Home","Fetching user details")
+                    userViewModel.fetchUserDetails(sharedViewModel.currUser.value!!.uid, context)
+                }
+                else navigateToErrorScreen(navController,true,"home 2")
+            }
+            is ResultState.Success ->{
+                //FETCH PROFILE DETAILS
+                when(val state2 = profileDataState.value){
+                    is ResultState.Loading ->{
+                        if(state2.isLoading){
+                            userViewModel.fetchStudentDetails(
+                                context,
+                                state.data!!.registrationNumber,
+                                onComplete = {
+                                    sharedViewModel.insertProfile((it as ResultState.Success).data!!)
+                                    sharedViewModel.updateProfileDataState(it)
+                                },
+                                onError = {
+                                    sharedViewModel.updateProfileDataState(it)
+                                }
+                            )
+                        }
+                    }
+                    else ->{}
+                }
+                //FETCH SCHEDULE DETAILS
+                when(val state2 = scheduleDataState.value){
+                    is ResultState.Loading ->{
+                        if(state2.isLoading && state.data!!.scheduleId!="") {
+                            userViewModel.fetchSchedule(context, state.data.scheduleId)
+                        }
+                        else if(state2.isLoading)
+                            userViewModel.updateScheduleDataState(ResultState.Loading(false))
+                    }
+                    else-> {}
+                }
+            }
+            else -> {}
         }
     }
+
+    LaunchedEffect(userDataState.value){
+        when(val state = userDataState.value){
+            is ResultState.Success ->{
+                val userData = state.data!!
+                if(userData.timerStartTime!=null && userData.timerStartTime!! +5*60*1000 > System.currentTimeMillis() && userData.scheduleId=="" && userData.cycleId!=""){
+                    sharedViewModel.updateReservedCycleUid(userData.cycleId)
+                    sharedViewModel.startTimer(userData.timerStartTime!! + 5 * 60 * 1000 - System.currentTimeMillis()){
+                        cycleViewModel.updateReserveAvailableCycleState(ResultState.Success(userData.cycleId))
+                    }
+                }
+            }
+            else -> {}
+        }
+    }
+
+    when(profileDataState.value){
+        is ResultState.Success ->{
+            val student = (sharedViewModel.profileDataState.value as ResultState.Success).data!!
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(10.dp)
+                ) {
+                    Text(text = "Profile", fontWeight = FontWeight.Bold)
+                    profile(student)
+                    Spacer(modifier = Modifier.height(15.dp))
+                    Text(text = "Schedules", fontWeight = FontWeight.Bold)
+
+                    Schedules(scheduleDataState.value,navController, userViewModel)
+
+                }
+            }
+        }
+        is ResultState.Loading-> LoadingPage()
+        is ResultState.Error -> navigateToErrorScreen(navController,true,"Home 1")
+    }
+
 }
 
 @Composable
-fun profile(student: Student,imageUrl:String) {
+fun profile(student: Profile) {
+    val imageUrl = student.imageURL.ifEmpty { "default" }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -145,7 +214,7 @@ fun profile(student: Student,imageUrl:String) {
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun Schedules(
-    fetchSchedulesDataState : FetchSchedulesDataState,
+    scheduleResultState : ResultState<Schedule>,
     navController: NavController,
     userViewModel: UserViewModel
 ) {
@@ -163,45 +232,46 @@ fun Schedules(
                 .fillMaxSize()
                 .padding(8.dp)
         ){
-            when {
-                fetchSchedulesDataState.isLoading -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.5f)), // Semi-transparent overlay
-                        contentAlignment = Alignment.Center
-                    ) {
-                        LoadingPage() // Loading indicator
+            when(scheduleResultState) {
+                is ResultState.Loading -> {
+                    if (scheduleResultState.isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.5f)), // Semi-transparent overlay
+                            contentAlignment = Alignment.Center
+                        ) {
+                            LoadingPage() // Loading indicator
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(50.dp),
+                            //verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "No Schedules",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "NO SCHEDULES FOR THE DAY",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
+                }
+                is ResultState.Error ->{
+                    errorPage(message = "Some Error Occurred")
                 }
 
-                fetchSchedulesDataState.error -> {
-                    error(fetchSchedulesDataState.errorMessage)
-                }
-                fetchSchedulesDataState.schedule == null -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(50.dp),
-                        //verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "No Schedules",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "NO SCHEDULES FOR THE DAY",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-                else->{
-                    ScheduleScreen(fetchSchedulesDataState.schedule!!,userViewModel,navController)
+                is ResultState.Success->{
+                    ScheduleScreen(scheduleResultState.data!!,userViewModel,navController)
                 }
             }
         }
@@ -217,7 +287,6 @@ fun ScheduleScreen(
     navController: NavController
 ) {
 
-    Log.d("ScheduleScreen","Screen Called")
     var showDialog1 by remember { mutableStateOf(false) }
     if(showDialog1){
         Component_tDialogBox(
@@ -231,7 +300,7 @@ fun ScheduleScreen(
     var elapsedTime by remember { mutableStateOf("") }
     DisposableEffect(schedule.startTime) {
         var job: Job? = null
-        if(schedule.status.status.equals(ScheduleState.OVERTIME))
+        if(schedule.status.status == ScheduleState.OVERTIME)
         {
             elapsedTime = calculateTimeElapsed(schedule.startTime, schedule.estimateTime)
             job = CoroutineScope(Dispatchers.Main).launch {
@@ -242,8 +311,7 @@ fun ScheduleScreen(
             }
         }
         onDispose {
-            if(job!=null)
-                job.cancel()  // Cancel the coroutine when leaving the screen
+            job?.cancel()  // Cancel the coroutine when leaving the screen
         }
     }
 
@@ -251,9 +319,8 @@ fun ScheduleScreen(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .clickable(onClick =  {
-                Log.d("ScheduleScreen","navigating to EachScheduleDetailScreen")
-                navController.navigate(Routes.EachScheduleDetailScreen.route)
+            .clickable(onClick = {
+                navigateToEachScheduleDetailScreen(userViewModel,navController)
             }),
         tonalElevation = 4.dp,
         shape = RoundedCornerShape(8.dp),

@@ -12,9 +12,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,7 +34,7 @@ import com.example.easycycle.presentation.ui.components.component_image
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
 
 @Composable
-fun SignInScreen( snackbarHostState: SnackbarHostState , sharedViewModel: SharedViewModel, updateUserType : (String)->Unit) {
+fun SignInScreen(sharedViewModel: SharedViewModel, updateUserType : (String)->Unit) {
     val context= LocalContext.current
     var visible by remember{ mutableStateOf(false) }
 
@@ -73,6 +73,12 @@ fun SignInScreen( snackbarHostState: SnackbarHostState , sharedViewModel: Shared
         textBox1=value
     }
 
+    LaunchedEffect(Unit){
+        // When Logging-in first clear any data available in LocalData
+        sharedViewModel.clearProfile()
+    }
+
+
     if(visible)
         Component_tDialogBox(text1,textItems, onDismissRequest = {
             visible=false
@@ -100,14 +106,15 @@ fun SignInScreen( snackbarHostState: SnackbarHostState , sharedViewModel: Shared
             Component_textField(textBox1,OnChange1,label= if(selectedOption2=="Reg.No.") "Registration Number" else if(selectedOption2=="Admin Id.") "Admin Id." else "Email", readOnly = (selectedOption2==""))
             Spacer(modifier = Modifier.height(10.dp))
 
-            Component_textField(password,passwordChange, visualTransformation = PasswordVisualTransformation(),label="Password", readOnly =     (textBox1==""))
+            Component_textField(password,passwordChange, visualTransformation = PasswordVisualTransformation(),label="Password", readOnly = (textBox1==""))
             Spacer(modifier = Modifier.height(24.dp))
 
             Component_Button(title = "Press", onClick = {
                 Log.d(":Login","Button Pressed")
-                sharedViewModel.login(selectedOption1,selectedOption2,textBox1,password,context) })
+                sharedViewModel.login(selectedOption1,selectedOption2,textBox1,password,context)},
+                enabled = password != ""
+            )
             Text(text = "How It Works?",modifier=Modifier.clickable { visible= true }, color=Color.Red)
-            //ComponentSnackbar("working1", snackbarHostState =snackbarHostState)
         }
     }
 }
@@ -120,7 +127,7 @@ val img_modifier = Modifier
 
 val login_box_modifier= Modifier
     .fillMaxSize()
-    .background(color=Color.White)  // Light background color
+    .background(color = Color.White)  // Light background color
     .padding(16.dp)
 
 val log_in_column_modifier = Modifier

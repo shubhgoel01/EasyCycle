@@ -5,7 +5,6 @@ import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,11 +23,9 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,12 +41,12 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.easycycle.calculateEstimatedCost
 import com.example.easycycle.data.Enum.Location
-import com.example.easycycle.data.model.Cycle
 import com.example.easycycle.data.model.Schedule
-import com.example.easycycle.data.model.FetchSchedulesDataState
 import com.example.easycycle.data.model.ResultState
-import com.example.easycycle.data.model.bookCycle
 import com.example.easycycle.presentation.navigation.Routes
+import com.example.easycycle.presentation.navigation.navigateToAllCycleScreen
+import com.example.easycycle.presentation.navigation.navigateToErrorScreen
+import com.example.easycycle.presentation.navigation.navigateToHomeScreen
 import com.example.easycycle.presentation.ui.components.AssistChipExample
 import com.example.easycycle.presentation.ui.components.ComponentDropdown
 import com.example.easycycle.presentation.ui.components.Component_Button
@@ -65,55 +62,28 @@ import java.util.Calendar
 @SuppressLint("SuspiciousIndentation")
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedViewModel,cycleViewModel: CycleViewModel,userViewModel:UserViewModel,snackbarHostState: SnackbarHostState,navController: NavController) {
+fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedViewModel,cycleViewModel: CycleViewModel,userViewModel:UserViewModel,navController: NavController) {
     val context = LocalContext.current
-
-    DisposableEffect(Unit){
-        onDispose {
-            Log.d("BookingScreen","Inside DisposableEffect")
-            if(!cycleViewModel.reserveAvailableCycleState.value.isLoading && cycleViewModel.reserveAvailableCycleState.value.cycle==null){
-                cycleViewModel.updateReserveAvailableCycleState(bookCycle())
-            //If no cycle is reserved then on screen change clear the reserveAvailableCycleState, otherwise wrong information may be
-            // displayed when user again visits the screen
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        if(sharedViewModel.reservedCycleUid.value==null && !sharedViewModel.showDialog1.value && !sharedViewModel.showDialog2.value)
-            cycleViewModel.reserveAvailableCycle(){
-                if(!it.isLoading && it.cycle==null)
-                    sharedViewModel.updateShowDialog2(true)
-                else if(!it.isLoading && it.cycle!=null) {
-                    sharedViewModel.updateReservedCycleUid(cycleViewModel.reserveAvailableCycleState.value.cycle!!.cycleId)
-                    Log.d("BookingPage","Calling Start Timer")
-                    sharedViewModel.startTimer(5 * 60 * 1000){
-                        cycleViewModel.updateReserveAvailableCycleState(bookCycle(
-                            isLoading = false,
-                            cycle = null
-                        ))
-                    }
-                }
-            }
-        else if(!sharedViewModel.showDialog1.value && !sharedViewModel.showDialog2.value){
-            Toast.makeText(context,"Continuing Booking",Toast.LENGTH_SHORT).show()
-            cycleViewModel.updateReserveAvailableCycleState(
-                bookCycle(
-                    isLoading = false,
-                    error = false,
-                    cycle = Cycle(cycleId = sharedViewModel.reservedCycleUid.value!!)
-                ))
-        }
-    }
-
     val reserveCycleState = cycleViewModel.reserveAvailableCycleState.collectAsState()
 
-//    LaunchedEffect(reserveCycleState.value ){
-//        Log.d("Dialog","Inside LaunchEffect")
-//        if(!reserveCycleState.value.isLoading && reserveCycleState.value.cycle==null && !sharedViewModel.showDialog1.value && !sharedViewModel.showDialog2.value)
-//            sharedViewModel.updateShowDialog2(true)
-//    }
-
+    LaunchedEffect(Unit){
+        when (val state = reserveCycleState.value){
+            is ResultState.Loading -> {
+                if(state.isLoading && !sharedViewModel.showDialog1.value && !sharedViewModel.showDialog2.value){
+                    cycleViewModel.reserveAvailableCycle(
+                        context,
+                        onCancel = { sharedViewModel.updateShowDialog2(true) },
+                        onComplete = {
+                            sharedViewModel.updateReservedCycleUid(it)
+                            sharedViewModel.startTimer(5*60*1000){
+                                //TODO For NOW I AM NOT GETTING ANYTHING HERE TO UPDATE
+                            }
+                        })
+                }
+            }
+            else -> {}
+        }
+    }
 
     val showDialog2 = sharedViewModel.showDialog2.collectAsState()   //Used when no cycle is available
 
@@ -122,31 +92,32 @@ fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedVi
             heading = "No cycle available",
             body = "We are sorry but no cycles are available",
             onDismissRequest = {sharedViewModel.updateShowDialog2(false)},
-            composable = { demo(sharedViewModel,navController) }
+            composable = { demo(userViewModel,cycleViewModel,sharedViewModel,navController) }
         )
     }
 
 
     val createSchedulesState = userViewModel.createScheduleState.collectAsState()
-    LaunchedEffect(createSchedulesState.value) {
-        when (val state = createSchedulesState.value) {
-            is ResultState.Loading -> {
-                if (state.isLoading) {
-                    Toast.makeText(context, "Processing Your Request", Toast.LENGTH_SHORT).show()
-                    Log.d("createScheduleState", "Booking Page - Now Loading")
-                }
-            }
-            is ResultState.Success -> {
-                Log.d("createScheduleState", "Booking Page - Successfully Created the Schedule")
-                Toast.makeText(context, "Schedule Created", Toast.LENGTH_SHORT).show()
-                navController.navigate(Routes.UserHome.route)
-            }
-            is ResultState.Error -> {
-                Log.d("createScheduleState", "Booking Page - Error Occurred while Creating the Schedule")
-                Toast.makeText(context, "Error occurred", Toast.LENGTH_SHORT).show()
-                Log.e("create Schedule", "Error : ${state.message}")
+
+    LaunchedEffect(createSchedulesState.value){
+        if(createSchedulesState.value is ResultState.Success)
+            navigateToHomeScreen(navController,userViewModel,sharedViewModel)
+        else if (createSchedulesState.value is ResultState.Error)
+            navigateToErrorScreen(navController, message = "Booking Page 1")
+    }
+    when (val state = createSchedulesState.value) {
+        is ResultState.Loading -> {
+            if (state.isLoading) {
+                Toast.makeText(context, "Processing Your Request", Toast.LENGTH_SHORT).show()
+                LoadingPage()
             }
         }
+        else ->{}
+    }
+
+    LaunchedEffect(reserveCycleState.value){
+        if(reserveCycleState.value is ResultState.Error)
+            navigateToErrorScreen(navController, message = "Booking Page 2")
     }
 
     Box(modifier = Modifier
@@ -161,42 +132,49 @@ fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedVi
                 style = MaterialTheme.typography.bodySmall,
                 //color = MaterialTheme.colors.error
             )
-            // Title and Cycle Status
-            if (reserveCycleState.value.isLoading) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                ) {
-                    LoadingPage(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .fillMaxSize()
+
+            when(val state = reserveCycleState.value){
+                is  ResultState.Loading ->{
+                   if(state.isLoading){
+                       Box(
+                           modifier = Modifier
+                               .size(40.dp)
+                       ) {
+                           LoadingPage(
+                               modifier = Modifier
+                                   .align(Alignment.TopEnd)
+                                   .fillMaxSize()
+                           )
+                       }
+                   }
+                    else {
+                       Text(
+                           text = "No cycles available",
+                           style = MaterialTheme.typography.bodySmall,
+                           // now show dialog over here
+                       )
+                   }
+                }
+                is ResultState.Success ->{
+                    Text(
+                        text = "Cycle Reserved, Book Fast",
+                        style = MaterialTheme.typography.bodySmall
+                        //color = MaterialTheme.colors.onSurface
                     )
                 }
-            } else if (reserveCycleState.value.errorMessage.isNotEmpty()) {     //CREATE A SEPARATE IF CONDITION TO CHECK IF ERROR OCCURS
-                Text(
-                    text = "No cycles available",
-                    style = MaterialTheme.typography.bodySmall,
-                    //color = MaterialTheme.colors.error
-                )
-                //sharedViewModel.showDialog2.value = true   Moved this to launch effect, otherwise the dialog was not hiding
-            } else {
-                // Displaying available cycle time (as an example, this could be dynamic)
-                Text(
-                    text = "Cycle Reserved, Book Fast",
-                    style = MaterialTheme.typography.bodySmall
-                    //color = MaterialTheme.colors.onSurface
-                )
+                else ->{}
             }
+
             BookingPage(
                 rentNow,
                 rentLater,
-                snackbarHostState,
+                enabled = (reserveCycleState.value is ResultState.Success) && ((userViewModel.createScheduleState.value is ResultState.Loading) && !(userViewModel.createScheduleState.value as ResultState.Loading).isLoading),
                 onBook = {startLocation,endLocation,StartTime,estimateScheduleTime->
-                    //userViewModel.updateScheduleDataState(FetchSchedulesDataState())
                     userViewModel.updateCreateScheduleState(ResultState.Loading(true))
                     if(sharedViewModel.currUser.value!=null)
-                        userViewModel.createSchedule(Schedule(
+                        userViewModel.createSchedule(
+                            context,
+                            Schedule(
                             userUid = sharedViewModel.currUser.value!!.uid,
                             cycleUid = sharedViewModel.reservedCycleUid.value!!,
                             estimateTime = estimateScheduleTime,
@@ -211,7 +189,7 @@ fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedVi
     }
 }
 @Composable
-fun BookingPage(rentNow: Boolean, rentLater: Boolean,snackbarHostState: SnackbarHostState,onBook:(String,String,Long,Long)->Unit) {
+fun BookingPage(rentNow: Boolean, rentLater: Boolean,enabled:Boolean,onBook:(String,String,Long,Long)->Unit) {
     val context = LocalContext.current
     // Pickup Location
     var selectedOptionLocation by remember { mutableStateOf(Location.NILGIRI.toString()) }
@@ -401,7 +379,7 @@ fun BookingPage(rentNow: Boolean, rentLater: Boolean,snackbarHostState: Snackbar
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if(estimateCost!=null) "$$estimateCost".toString() else "",
+                        text = if(estimateCost!=null) "$$estimateCost" else "",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Green
                     )
@@ -414,7 +392,8 @@ fun BookingPage(rentNow: Boolean, rentLater: Boolean,snackbarHostState: Snackbar
                     onClick = onButtonClick,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp)
+                        .padding(top = 8.dp),
+                    enabled = enabled
                 )
             }
         }
@@ -424,7 +403,7 @@ fun BookingPage(rentNow: Boolean, rentLater: Boolean,snackbarHostState: Snackbar
 
 //Composable that is passed to showDialog
 @Composable
-fun demo(sharedViewModel: SharedViewModel, navController: NavController) {
+fun demo(userViewModel: UserViewModel,cycleViewModel: CycleViewModel,sharedViewModel: SharedViewModel, navController: NavController) {
     Box(
         modifier = Modifier
             .padding(16.dp) // Added padding for the outer box
@@ -442,7 +421,7 @@ fun demo(sharedViewModel: SharedViewModel, navController: NavController) {
                     ), // Updated font size
                     modifier = Modifier.clickable {
                         sharedViewModel.updateShowDialog2(false)
-                        navController.navigate(Routes.AllCycleScreen.route)
+                        navigateToAllCycleScreen(cycleViewModel,navController)
                     }
                 )
                 Text(
@@ -466,7 +445,7 @@ fun demo(sharedViewModel: SharedViewModel, navController: NavController) {
                     ),
                     modifier = Modifier.clickable {
                         sharedViewModel.updateShowDialog2(false)
-                        navController.navigate(Routes.UserHome.route)
+                        navigateToHomeScreen(navController, userViewModel,sharedViewModel)
                     }
                 )
                 Text(
