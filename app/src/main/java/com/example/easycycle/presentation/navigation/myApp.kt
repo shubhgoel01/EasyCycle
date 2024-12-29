@@ -3,10 +3,14 @@ package com.example.easycycle.presentation.navigation
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Scaffold
 import androidx.compose.material.rememberScaffoldState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -14,8 +18,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -33,6 +40,7 @@ import com.example.easycycle.presentation.ui.components.BookingFAB
 import com.example.easycycle.presentation.ui.components.Component_tDialogBox
 import com.example.easycycle.presentation.ui.components.ViewTopAppBar
 import com.example.easycycle.presentation.ui.components.drawerContent
+import com.example.easycycle.presentation.ui.components.snackBarWithAction
 import com.example.easycycle.presentation.ui.eachScheduleDetailScreen
 import com.example.easycycle.presentation.ui.errorPage
 import com.example.easycycle.presentation.ui.homeScreen
@@ -49,6 +57,7 @@ fun myApp(
     sharedViewModel: SharedViewModel,
     userViewModel: UserViewModel,
     cycleViewModel: CycleViewModel,
+    snackbarHostState : SnackbarHostState
 ) {
     val scaffoldState= rememberScaffoldState()
     val scope= rememberCoroutineScope()
@@ -115,30 +124,42 @@ fun myApp(
         )
     }
 
-    Scaffold(
-        topBar = {
-            if( currentRoute !=  Routes.LoadingScreen.route)
-                ViewTopAppBar("EasyCycle",scope,scaffoldState, sharedViewModel = sharedViewModel)
-        },
-        drawerContent = {
-            if( currentRoute !=  Routes.LoadingScreen.route)
-                drawerContent(scope,scaffoldState,navController)
-        },
-        scaffoldState=scaffoldState,
-        backgroundColor = Color.Transparent,
-        floatingActionButton = {
-            when (val state = userDataState.value){
-                is ResultState.Success ->{
-                    if(state.data!!.scheduleId == "" && currentRoute == Routes.UserHome.route)
-                        BookingFAB(fabExpanded,onFabClick,onOptionClick,onFabClick2, onConfirmFab2)
+    Box(modifier = Modifier.fillMaxSize()){
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp) // Optional padding
+                .zIndex(1f)
+        )
+        Scaffold(
+            topBar = {
+                if( currentRoute !=  Routes.LoadingScreen.route)
+                    ViewTopAppBar("EasyCycle",scope,scaffoldState, sharedViewModel = sharedViewModel)
+            },
+            drawerContent = {
+                if( currentRoute !=  Routes.LoadingScreen.route)
+                    drawerContent(scope,scaffoldState,navController)
+            },
+            scaffoldState=scaffoldState,
+            backgroundColor = Color.Transparent,
+            floatingActionButton = {
+                when (val state = userDataState.value){
+                    is ResultState.Success ->{
+                        if(state.data!!.scheduleId == "" && currentRoute == Routes.UserHome.route)
+                            BookingFAB(fabExpanded,onFabClick,onOptionClick,onFabClick2, onConfirmFab2)
+                    }
+                    else -> {}
                 }
-                else -> {}
             }
+            )
+        {
+            Navigation(navController,startDestination,it,userViewModel,sharedViewModel,cycleViewModel)
         }
-    )
-    {
-        Navigation(navController,startDestination,it,userViewModel,sharedViewModel,cycleViewModel)
     }
+
+    snackBarWithAction(snackbarHostState,scope)
+
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -148,7 +169,7 @@ fun Navigation(navController: NavController,
                pd:PaddingValues,
                userViewModel: UserViewModel,
                sharedViewModel: SharedViewModel,
-               cycleViewModel: CycleViewModel
+               cycleViewModel: CycleViewModel,
 ) {
     NavHost(
         navController = navController as NavHostController,
@@ -205,7 +226,7 @@ fun Navigation(navController: NavController,
         }
         composable(route = Routes.EachScheduleDetailScreen.route) {
             logMessageOnLogcat("navigation","Navigating to EachScheduleDetailScreen")
-            eachScheduleDetailScreen(userViewModel,navController,sharedViewModel)
+            eachScheduleDetailScreen(userViewModel,navController,sharedViewModel,cycleViewModel)
         }
     }
 }

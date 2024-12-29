@@ -37,12 +37,6 @@ class UserViewModel @Inject constructor(
         _returnOrCancelSchedule.value = value
     }
 
-//    private var _studentDataState = MutableStateFlow<ResultState<Student>>(ResultState.Loading(false))
-//    var studentDataState: StateFlow<ResultState<Student>> = _studentDataState
-//    fun updateStudentDataState(value : ResultState<Student>){
-//        _studentDataState.value = value
-//    }
-
     private var _userDataState = MutableStateFlow<ResultState<User>>(ResultState.Loading(false))
     var userDataState:StateFlow<ResultState<User>> = _userDataState
     fun updateUserDataState(value:ResultState<User>){
@@ -159,7 +153,7 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    //----------------------------------------------------------------------------------Refactored Till Here
+
     @RequiresApi(Build.VERSION_CODES.O)
     fun createSchedule(context:Context,schedule: Schedule,onComplete:(ResultState<Schedule>)->Unit){
         viewModelScope.launch(Dispatchers.IO) {
@@ -172,7 +166,17 @@ class UserViewModel @Inject constructor(
                         onComplete(ResultState.Success(schedule.copy(
                             scheduleUid = scheduleUid
                         )))
-                        fetchSchedule(context,scheduleUid)
+                        //fetchSchedule(context,scheduleUid)
+                        //Once the schedule is booked, ensure userData is updated to reflect the scheduleId
+                        when(val state = _userDataState.value){
+                            is ResultState.Success ->{
+                                updateUserDataState(ResultState.Success(state.data!!.copy(scheduleId = schedule.scheduleUid)))
+                            }
+                            else -> {}
+                        }
+                        // Update ScheduleDataState so that when moving to the Home Screen, system tells the screen to fetch the schedule if any
+                        //Using this way we do not need to explicitly-fetch the schedule or call the function
+                        updateScheduleDataState(ResultState.Loading(false))
                     }
                 )
             }
@@ -185,7 +189,7 @@ class UserViewModel @Inject constructor(
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun returnOrCancelRide(schedule:Schedule){
+    fun returnOrCancelRide(schedule:Schedule,resetReserveCycleState:()->Unit){
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -193,10 +197,23 @@ class UserViewModel @Inject constructor(
                 studentUseCases.returnOrCancelRide(
                     schedule,
                     onComplete = {
+                        //Reset scheduleDataState to when navigating to home screen it tells the screen to fetch the schedule detials
                         _scheduleDataState.value = ResultState.Loading(false)
-                        //Also Update UserDataState
-                        //Also update ReserveAvailableCycleState and createScheduleState if needed
+                        //Update the scheduleId in userDataState so that it shows that no schedule is booked for now
+                        when(val state = _userDataState.value)
+                        {
+                             is ResultState.Success -> {
+                                 updateUserDataState(ResultState.Success(state.data!!.copy(scheduleId = "")))
+                             }
+                            else -> {}
+                        }
+                        resetReserveCycleState()
+                        //This Is Necessary in case if user Returns the cycle and immediately wishes to book another ride
+                        _createScheduleState.value = ResultState.Loading(false)
+                        //To mark that return is successful
                         _returnOrCancelSchedule.value = ResultState.Success(null)
+
+                        //All these steps ensures the data is updated acc to the current state
                     }
                 )
             }

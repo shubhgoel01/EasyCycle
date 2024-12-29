@@ -46,28 +46,29 @@ class CycleViewModel @Inject constructor(
     }
 
     fun reserveAvailableCycle(context: Context, onCancel:()->Unit,onComplete:(String)->Unit){
-        try {
-            logInformationOnLogcat("reserveAvailableCycle","Now Calling Functions")
-            viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                logInformationOnLogcat("reserveAvailableCycle","Now Calling Functions")
                 sharedUseCase.bookAvailableCycleAndSetTimer{
                     _reserveAvailableCycleState.value = ResultState.Success(it)
                     onComplete(it)
                 }
                 logInformationOnLogcat("reserveAvailableCycle","Successfully Completed")
+
             }
-        }
-        catch (e:AppErrorException){
-            logErrorOnLogcat("bookCycle",e)
-            when(e.type){
-                ErrorType.DATA_NOT_FOUND ->{
-                    Toast.makeText(context,"No Cycle Is available",Toast.LENGTH_SHORT).show()
-                    _reserveAvailableCycleState.value = ResultState.Loading(false)
-                    onCancel()
-                }
-                else -> {
-                    //TODO move to error screen
-                    Toast.makeText(context,"Some Internal error occurred",Toast.LENGTH_SHORT).show()
-                    _reserveAvailableCycleState.value = ResultState.Error(e)
+            catch (e:AppErrorException){
+                logErrorOnLogcat("bookCycle",e)
+                when(e.type){
+                    ErrorType.DATA_NOT_FOUND ->{
+                        //Toast.makeText(context,"No Cycle Is available",Toast.LENGTH_SHORT).show()
+                        _reserveAvailableCycleState.value = ResultState.Loading(false)
+                        onCancel()
+                    }
+                    else -> {
+                        //TODO move to error screen
+                        Toast.makeText(context,"Some Internal error occurred",Toast.LENGTH_SHORT).show()
+                        _reserveAvailableCycleState.value = ResultState.Error(e)
+                    }
                 }
             }
         }

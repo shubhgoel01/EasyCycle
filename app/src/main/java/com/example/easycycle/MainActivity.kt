@@ -7,9 +7,11 @@ import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -34,6 +36,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            val snackbarHostState = remember { SnackbarHostState() }
             navController = rememberNavController()
 
             val sharedViewModel: SharedViewModel = hiltViewModel()
@@ -68,7 +71,8 @@ class MainActivity : ComponentActivity() {
                         startDestination = startDestination ?: Routes.SignInScreen.route,
                         sharedViewModel = sharedViewModel,
                         userViewModel = userViewModel,
-                        cycleViewModel = cycleViewModel
+                        cycleViewModel = cycleViewModel,
+                        snackbarHostState = snackbarHostState
                     )
                 }
             }

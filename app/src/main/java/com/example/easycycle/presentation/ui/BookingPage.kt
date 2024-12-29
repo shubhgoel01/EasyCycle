@@ -66,7 +66,7 @@ fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedVi
     val context = LocalContext.current
     val reserveCycleState = cycleViewModel.reserveAvailableCycleState.collectAsState()
 
-    LaunchedEffect(Unit){
+    LaunchedEffect(reserveCycleState.value){
         when (val state = reserveCycleState.value){
             is ResultState.Loading -> {
                 if(state.isLoading && !sharedViewModel.showDialog1.value && !sharedViewModel.showDialog2.value){
@@ -75,9 +75,7 @@ fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedVi
                         onCancel = { sharedViewModel.updateShowDialog2(true) },
                         onComplete = {
                             sharedViewModel.updateReservedCycleUid(it)
-                            sharedViewModel.startTimer(5*60*1000){
-                                //TODO For NOW I AM NOT GETTING ANYTHING HERE TO UPDATE
-                            }
+                            sharedViewModel.startTimer(5*60*1000)
                         })
                 }
             }

@@ -189,7 +189,7 @@ class SharedViewModel @Inject constructor(
         }
     }
 
-    fun startTimer(durationMillis: Long,onComplete:()->Unit) {
+    fun startTimer(durationMillis: Long) {
 
         logInformationOnLogcat("Timer","Starting Timer")
         remainingMillis = durationMillis
@@ -212,7 +212,7 @@ class SharedViewModel @Inject constructor(
             _isTimerRunning.value = false
             _remainingTime.value = null
             //_reservedCycleUid.value = null  MOVED THIS TO myApp in Dialog if
-            onComplete()
+            //onComplete()
         }
     }
     fun endTimer() {

@@ -43,6 +43,7 @@ import com.example.easycycle.data.model.Schedule
 import com.example.easycycle.formatTimestamp
 import com.example.easycycle.presentation.navigation.navigateToErrorScreen
 import com.example.easycycle.presentation.navigation.navigateToHomeScreen
+import com.example.easycycle.presentation.viewmodel.CycleViewModel
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
 import com.example.easycycle.presentation.viewmodel.UserViewModel
 
@@ -52,34 +53,39 @@ import com.example.easycycle.presentation.viewmodel.UserViewModel
 fun eachScheduleDetailScreen(
     userViewModel: UserViewModel,
     navController: NavController,
-    sharedViewModel : SharedViewModel
+    sharedViewModel : SharedViewModel,
+    cycleViewModel: CycleViewModel
 ) {
-    Log.d("eachScheduleDetailScreen", "Calling function")
 
     val schedulesDataState = userViewModel.scheduleDataState.collectAsState()
     val returnOrCancelSchedule = userViewModel.returnOrCancelSchedule.collectAsState()
 
-    if (returnOrCancelSchedule.value is ResultState.Success) {
-        LaunchedEffect(Unit) {
-            navigateToHomeScreen(navController,userViewModel, sharedViewModel)
-        }
-        return
-    }
-
     lateinit var schedule : Schedule
 
     var enabled by remember { mutableStateOf(false) }
-    //showLoading = returnOrCancelRide.value is ResultState.Loading && ResultState.Loading
+
+    LaunchedEffect(returnOrCancelSchedule.value) {
+        when(val state = returnOrCancelSchedule.value){
+            is ResultState.Success -> navigateToHomeScreen(navController,userViewModel, sharedViewModel)
+            is ResultState.Loading -> {
+                if(state.isLoading){
+                    enabled = false
+                    val updatedSchedule = updateScheduleStatus(schedule)
+                    userViewModel.returnOrCancelRide(updatedSchedule){
+                        //This Is Necessary in case if user Returns the cycle and immediately wishes to book another ride
+                        cycleViewModel.updateReserveAvailableCycleState(ResultState.Loading(false))
+                    }
+                }
+                else enabled = true
+            }
+            is ResultState.Error -> navigateToErrorScreen(navController,message = "")
+        }
+    }
 
     when(val state = returnOrCancelSchedule.value){
-        is ResultState.Loading ->{
-            if(state.isLoading){
-                enabled = false
-                val updatedSchedule = updateScheduleStatus(schedule)
-                userViewModel.returnOrCancelRide(updatedSchedule)
+        is ResultState.Loading -> {
+            if(state.isLoading)
                 LoadingPage()
-            }
-            else enabled = true
         }
         else -> {}
     }
@@ -89,9 +95,9 @@ fun eachScheduleDetailScreen(
             if(state.isLoading){
                 LoadingPage()
             }
-            else {
-                navigateToErrorScreen(navController,true,"EachScheduleDetailScreen 1")
-            }
+//            else {
+//                navigateToErrorScreen(navController,true,"EachScheduleDetailScreen 1")
+//            }
         }
         is ResultState.Error -> {
             navigateToErrorScreen(navController,false,"EachScheduleDetailScreen 1")

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,6 +27,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,6 +59,7 @@ import com.example.easycycle.formatTimestamp
 import com.example.easycycle.presentation.navigation.navigateToEachScheduleDetailScreen
 import com.example.easycycle.presentation.navigation.navigateToErrorScreen
 import com.example.easycycle.presentation.ui.components.Component_tDialogBox
+import com.example.easycycle.presentation.ui.components.snackBarWithAction
 import com.example.easycycle.presentation.viewmodel.CycleViewModel
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
 import com.example.easycycle.presentation.viewmodel.UserViewModel
@@ -74,8 +77,9 @@ fun homeScreen(
     navController: NavController,
     userViewModel: UserViewModel,
     sharedViewModel: SharedViewModel,
-    cycleViewModel: CycleViewModel
+    cycleViewModel: CycleViewModel,
 ) {
+    //snackBarWithAction(snackbarHostState,appCoroutineScope)
     Log.d("homeScreen","Screen Called")
 
     val userDataState = userViewModel.userDataState.collectAsState()
@@ -136,9 +140,8 @@ fun homeScreen(
                 val userData = state.data!!
                 if(userData.timerStartTime!=null && userData.timerStartTime!! +5*60*1000 > System.currentTimeMillis() && userData.scheduleId=="" && userData.cycleId!=""){
                     sharedViewModel.updateReservedCycleUid(userData.cycleId)
-                    sharedViewModel.startTimer(userData.timerStartTime!! + 5 * 60 * 1000 - System.currentTimeMillis()){
-                        cycleViewModel.updateReserveAvailableCycleState(ResultState.Success(userData.cycleId))
-                    }
+                    cycleViewModel.updateReserveAvailableCycleState(ResultState.Success(userData.cycleId))
+                    sharedViewModel.startTimer(userData.timerStartTime!! + 5 * 60 * 1000 - System.currentTimeMillis())
                 }
             }
             else -> {}
@@ -154,13 +157,13 @@ fun homeScreen(
                         .fillMaxSize()
                         .padding(10.dp)
                 ) {
+
                     Text(text = "Profile", fontWeight = FontWeight.Bold)
                     profile(student)
                     Spacer(modifier = Modifier.height(15.dp))
                     Text(text = "Schedules", fontWeight = FontWeight.Bold)
 
                     Schedules(scheduleDataState.value,navController, userViewModel)
-
                 }
             }
         }
@@ -221,7 +224,7 @@ fun Schedules(
 
     Surface(
         modifier = Modifier
-            .fillMaxWidth()
+            .wrapContentSize()
             //.weight(1f) // Adjust weight if needed
             .padding(10.dp),
         //tonalElevation = 4.dp,
@@ -229,7 +232,7 @@ fun Schedules(
     ){
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .wrapContentSize()
                 .padding(8.dp)
         ){
             when(scheduleResultState) {
@@ -237,7 +240,7 @@ fun Schedules(
                     if (scheduleResultState.isLoading) {
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .wrapContentSize()
                                 .background(Color.Black.copy(alpha = 0.5f)), // Semi-transparent overlay
                             contentAlignment = Alignment.Center
                         ) {
@@ -246,7 +249,7 @@ fun Schedules(
                     } else {
                         Column(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .wrapContentSize()
                                 .padding(50.dp),
                             //verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
