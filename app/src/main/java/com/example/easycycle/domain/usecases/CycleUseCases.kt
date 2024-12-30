@@ -1,6 +1,5 @@
 package com.example.easycycle.domain.usecases
 
-import android.util.Log
 import com.example.easycycle.data.Enum.ErrorType
 import com.example.easycycle.data.Enum.Location
 import com.example.easycycle.data.model.AppErrorException
@@ -28,7 +27,7 @@ class CycleUseCases @Inject constructor(
     fun getAllCyclesRemoveListener(location: Location) {
         cycleDatabase.getAllCyclesRemoveEventListener(location)
     }
-    suspend fun bookAvailableCycle(onComplete: (String) -> Unit):String {
+    suspend fun findAndBookAvailableCycle(onComplete: (String) -> Unit):String {
         val cycleList = cycleDatabase.getAvailableCycles() // Fetch all available cycles
         //THIS IS INEFFICIENT BECAUSE cycleList WILL GET ALL CYCLES NODES BUT I JUST NEED AVAILABLE cycleUid
 
@@ -52,6 +51,15 @@ class CycleUseCases @Inject constructor(
             }
         }
         throw AppErrorException(ErrorType.DATA_NOT_FOUND,"bookAvailableCycle CycleUseCases","No Cycle Is available")
+    }
+
+    suspend fun checkAndBookCycle(cycleId:String,onComplete: () -> Unit){
+        logMessageOnLogcat("Transaction","Trying to book cycleId $cycleId")
+        val status = cycleDatabase.Transaction(cycleId)
+        if(status is ResultState.Error)
+            throw status.error
+
+        onComplete()
     }
 
 }

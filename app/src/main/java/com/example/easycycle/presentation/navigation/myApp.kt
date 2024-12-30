@@ -30,11 +30,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.example.easycycle.data.Enum.QrStatus
 import com.example.easycycle.data.model.ResultState
+import com.example.easycycle.data.remote.CycleFirebaseService
 import com.example.easycycle.logMessageOnLogcat
 import com.example.easycycle.presentation.ui.AllCyclesScreen
 import com.example.easycycle.presentation.ui.BookingScreen
 import com.example.easycycle.presentation.ui.LoadingPage
+import com.example.easycycle.presentation.ui.QRCodeScannerScreen
 import com.example.easycycle.presentation.ui.SignInScreen
 import com.example.easycycle.presentation.ui.components.BookingFAB
 import com.example.easycycle.presentation.ui.components.Component_tDialogBox
@@ -47,7 +50,6 @@ import com.example.easycycle.presentation.ui.homeScreen
 import com.example.easycycle.presentation.viewmodel.CycleViewModel
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
 import com.example.easycycle.presentation.viewmodel.UserViewModel
-
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -85,7 +87,7 @@ fun myApp(
                 navigateToBookingScreen(userViewModel,sharedViewModel,cycleViewModel,navController,rentNow = false, rentLater = true)
             }
             "Scan QR"->{
-                navigateToBookingScreen(userViewModel,sharedViewModel,cycleViewModel,navController,rentNow = true, rentLater = false)
+                navigateToQRScannerScreen(navController,userViewModel,sharedViewModel,cycleViewModel)
             }
             "Quick"->{
                 navigateToBookingScreen(userViewModel,sharedViewModel,cycleViewModel,navController,rentNow = false, rentLater = true)
@@ -95,12 +97,12 @@ fun myApp(
     }
 
     //Floating Action Button2
-    val onFabClick2 = {
-        //TODO
-    }
-    val onConfirmFab2: (String) -> Unit = { value ->
-        println("Option clicked: $value")
-    }
+//    val onFabClick2 = {
+//
+//    }
+//    val onConfirmFab2: (String) -> Unit = { value ->
+//        println("Option clicked: $value")
+//    }
 
     val userDataState = userViewModel.userDataState.collectAsState()
 
@@ -147,7 +149,8 @@ fun myApp(
                 when (val state = userDataState.value){
                     is ResultState.Success ->{
                         if(state.data!!.scheduleId == "" && currentRoute == Routes.UserHome.route)
-                            BookingFAB(fabExpanded,onFabClick,onOptionClick,onFabClick2, onConfirmFab2)
+                            BookingFAB(fabExpanded,onFabClick,onOptionClick)
+                            //BookingFAB(fabExpanded,onFabClick,onOptionClick,onFabClick2, onConfirmFab2)
                     }
                     else -> {}
                 }
@@ -158,7 +161,7 @@ fun myApp(
         }
     }
 
-    snackBarWithAction(snackbarHostState,scope)
+    //snackBarWithAction(snackbarHostState,scope)
 
 }
 
@@ -228,11 +231,16 @@ fun Navigation(navController: NavController,
             logMessageOnLogcat("navigation","Navigating to EachScheduleDetailScreen")
             eachScheduleDetailScreen(userViewModel,navController,sharedViewModel,cycleViewModel)
         }
+        composable(route = Routes.QrScannerScreen.route) {
+            logMessageOnLogcat("navigation","Navigating to QrScannerScreen")
+            QRCodeScannerScreen(navController,userViewModel,sharedViewModel,cycleViewModel)
+        }
     }
 }
 
 fun navigateToHomeScreen(navController: NavController , userViewModel: UserViewModel , sharedViewModel: SharedViewModel){
 
+    Log.d("HomeScreen","Inside Function Call To navigation")
     // Give Access To FetchProfileData if previously error was occurred
     if(sharedViewModel.profileDataState.value is ResultState.Error)
         sharedViewModel.updateProfileDataState(ResultState.Loading(true))
@@ -256,8 +264,8 @@ fun navigateToHomeScreen(navController: NavController , userViewModel: UserViewM
     }
 
     navController.navigate(Routes.UserHome.route) {
+        popUpTo(Routes.UserHome.route) { inclusive = true } // Ensure QR scanner is removed
         launchSingleTop = true
-        popUpTo(navController.graph.startDestinationId) { inclusive = true }
     }
 }
 
@@ -319,6 +327,23 @@ fun navigateToLoadingScreen(navController: NavController){
     }
 }
 
+fun navigateToQRScannerScreen(navController: NavController,userViewModel: UserViewModel,sharedViewModel: SharedViewModel,cycleViewModel: CycleViewModel){
+    Log.d("QRSCANNER","Inside Function Call To navigation")
+
+    when(val state = cycleViewModel.reserveAvailableCycleState.value){
+        is ResultState.Loading ->{
+            if(!state.isLoading)
+                cycleViewModel.updateReserveAvailableCycleState(ResultState.Loading(true))
+        }
+        else -> {}
+    }
+
+    navController.navigate(Routes.QrScannerScreen.route){
+        popUpTo(Routes.UserHome.route) { inclusive = false }
+        launchSingleTop = true
+    }
+}
+
 fun navigateToErrorScreen(navController:NavController, clearStack:Boolean = false, message:String){
 
     Log.e("ERROR",message)
@@ -344,4 +369,8 @@ sealed class Routes(val route: String) {
     }
     data object EachScheduleDetailScreen : Routes("EachScheduleDetailScreen")
     data object AllCycleScreen : Routes("AllCycleScreen")
+    data object QrScannerScreen : Routes("QrScannerScreen")
 }
+
+
+

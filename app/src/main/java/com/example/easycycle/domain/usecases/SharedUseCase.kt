@@ -8,8 +8,13 @@ class SharedUseCase @Inject constructor(
     private val studentUseCase: StudentUseCases,
     private val auth: FirebaseAuth,
 ) {
-    suspend fun bookAvailableCycleAndSetTimer(onComplete: (String) -> Unit){
-        val cycleId:String = cycleUseCase.bookAvailableCycle(onComplete)
+    suspend fun findAndBookAvailableCycleAndSetTimer(onComplete: (String) -> Unit){
+        val cycleId:String = cycleUseCase.findAndBookAvailableCycle(onComplete)
+        studentUseCase.startTimer(auth.currentUser!!.uid,cycleId)
+    }
+
+    suspend fun checkAndBookAvailableCycleAndSetTimer(cycleId:String,onComplete: () -> Unit){
+        cycleUseCase.checkAndBookCycle(cycleId,onComplete)
         studentUseCase.startTimer(auth.currentUser!!.uid,cycleId)
     }
 }

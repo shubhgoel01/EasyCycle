@@ -89,6 +89,7 @@ fun homeScreen(
     val context = LocalContext.current
 
     LaunchedEffect(userDataState.value){
+        Log.d("UserDataState",userDataState.value.toString())
         when (val state = userDataState.value){
             is ResultState.Loading ->{
                 //FETCH USER DETAILS

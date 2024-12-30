@@ -33,7 +33,11 @@ import com.example.easycycle.R
 
 
 @Composable
-fun BookingFAB(expanded:Boolean,onClick1:()->Unit,onOptionClick: (String) -> Unit, onClick2:()->Unit,onConfirm2:(String)->Unit) {
+fun BookingFAB(expanded:Boolean,
+               onClick1:()->Unit,
+               onOptionClick: (String) -> Unit,
+               //onClick2:()->Unit
+) {
     val rotationAngle by animateFloatAsState(targetValue = if (expanded) 45f else 0f, label = "") // Animate rotation
     val optionsAlpha by animateFloatAsState(targetValue = if (expanded) 1f else 0f, label = "") // Animate options fade-in/out
 
@@ -56,23 +60,23 @@ fun BookingFAB(expanded:Boolean,onClick1:()->Unit,onOptionClick: (String) -> Uni
             }
         }
 
-        FloatingActionButton(
-            onClick = { onClick2() },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.qrscanner),
-                contentDescription = if (expanded) "Close options" else "Open options",
-            )
-        }
+//        FloatingActionButton(
+//            onClick = { onClick2() },
+//            containerColor = MaterialTheme.colorScheme.primary,
+//            contentColor = MaterialTheme.colorScheme.onPrimary,
+//        ) {
+//            Icon(
+//                painter = painterResource(id = R.drawable.qrscanner),
+//                contentDescription = if (expanded) "Close options" else "Open options",
+//            )
+//        }
         // FAB with rotation animation
         FloatingActionButton(
             onClick = { onClick1() },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
-                .padding(bottom = 70.dp)
+                .padding(bottom = 40.dp, end = 10.dp)
                 .align(Alignment.BottomEnd)
                 .rotate(rotationAngle)
         ) {

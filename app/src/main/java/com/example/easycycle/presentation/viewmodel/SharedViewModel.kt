@@ -55,7 +55,6 @@ class SharedViewModel @Inject constructor(
     private val _remainingTime: MutableStateFlow<String?> = MutableStateFlow(null)
     val remainingTime: StateFlow<String?> = _remainingTime
     private val _isTimerRunning = MutableStateFlow(false) // Tracks timer status
-    val isTimerRunning: StateFlow<Boolean> = _isTimerRunning
 
 //For showing "Live" Button on topAppBar
     private var liveIconJob: Job? = null
@@ -192,7 +191,8 @@ class SharedViewModel @Inject constructor(
     fun startTimer(durationMillis: Long) {
 
         logInformationOnLogcat("Timer","Starting Timer")
-        remainingMillis = durationMillis
+        //remainingMillis = durationMillis
+        remainingMillis = 50*1000
         _isTimerRunning.value = true
 
         timerJob?.cancel()

@@ -49,7 +49,7 @@ class CycleViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 logInformationOnLogcat("reserveAvailableCycle","Now Calling Functions")
-                sharedUseCase.bookAvailableCycleAndSetTimer{
+                sharedUseCase.findAndBookAvailableCycleAndSetTimer{
                     _reserveAvailableCycleState.value = ResultState.Success(it)
                     onComplete(it)
                 }
@@ -105,5 +105,30 @@ class CycleViewModel @Inject constructor(
             logErrorOnLogcat("AllCycles",e)
         }
 
+    }
+
+    fun checkAvailableAndBookCycle(cycleUid:String,context: Context, onCancel:()->Unit,onComplete:()->Unit){
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                logInformationOnLogcat("reserveAvailableCycle","Now Calling Functions")
+                sharedUseCase.checkAndBookAvailableCycleAndSetTimer(cycleUid){
+                    _reserveAvailableCycleState.value = ResultState.Success(cycleUid)
+                    onComplete()
+                }
+            }
+            catch (e:AppErrorException){
+                logErrorOnLogcat("bookCycle",e)
+                when(e.type){
+                    ErrorType.CANCELLED -> {
+                        _reserveAvailableCycleState.value = ResultState.Loading(false)
+                        onCancel()
+                    }
+                    else ->{
+                        Toast.makeText(context,"Some Internal error occurred",Toast.LENGTH_SHORT).show()
+                        _reserveAvailableCycleState.value = ResultState.Error(e)
+                    }
+                }
+            }
+        }
     }
 }

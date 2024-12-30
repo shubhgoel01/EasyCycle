@@ -187,7 +187,11 @@ fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedVi
     }
 }
 @Composable
-fun BookingPage(rentNow: Boolean, rentLater: Boolean,enabled:Boolean,onBook:(String,String,Long,Long)->Unit) {
+fun BookingPage(rentNow: Boolean,
+                rentLater: Boolean,
+                enabled:Boolean,
+                onBook:(String,String,Long,Long)->Unit
+) {
     val context = LocalContext.current
     // Pickup Location
     var selectedOptionLocation by remember { mutableStateOf(Location.NILGIRI.toString()) }

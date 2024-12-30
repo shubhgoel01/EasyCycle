@@ -2,6 +2,7 @@ package com.example.easycycle
 
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.easycycle.data.model.ResultState
 import com.example.easycycle.presentation.navigation.Routes
 import com.example.easycycle.presentation.navigation.myApp
 import com.example.easycycle.presentation.navigation.navigateToHomeScreen
@@ -52,16 +54,25 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val user = sharedViewModel.currUser.collectAsState()
 
-                    LaunchedEffect(user.value) {
-                        if (user.value != null) {
-                            navigateToHomeScreen(navController,userViewModel,sharedViewModel)
-                        }
-                    }
+//                    LaunchedEffect(user.value) {
+//                        if (user.value != null) {
+//                            navigateToHomeScreen(navController,userViewModel,sharedViewModel)
+//                        }
+//                    }
+//
+//                    val startDestination = if (user.value == null) {
+//                        Routes.SignInScreen.route
+//                    } else {
+//                        null
+//                    }
 
                     val startDestination = if (user.value == null) {
                         Routes.SignInScreen.route
                     } else {
-                        null
+                        sharedViewModel.updateProfileDataState(ResultState.Loading(true))
+                        userViewModel.updateScheduleDataState(ResultState.Loading(true))
+                        userViewModel.updateUserDataState(ResultState.Loading(true))
+                        Routes.UserHome.route
                     }
 
 
