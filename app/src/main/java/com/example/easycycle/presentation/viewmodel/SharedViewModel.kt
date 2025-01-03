@@ -24,6 +24,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -76,8 +79,15 @@ class SharedViewModel @Inject constructor(
         profileRepo.clearProfile()
     }
 
+    init {
+        logInformationOnLogcat("Profile","Init - Trying to fetch profile data")
+        if(_profileDataState.value is ResultState.Loading && !(_profileDataState.value as ResultState.Loading).isLoading)
+            getProfile()
+    }
+
     private fun getProfile(){
         _profileDataState.value = ResultState.Loading(true)
+        //TODO Here Commented this, because this is causing re-fetching navigating to home screen, solve this later
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 logInformationOnLogcat("getProfile","Fetching Profile Data")
@@ -101,11 +111,6 @@ class SharedViewModel @Inject constructor(
         }
     }
 
-    init {
-        logInformationOnLogcat("Profile","Init - Trying to fetch profile data")
-        if(_profileDataState.value is ResultState.Loading && !(_profileDataState.value as ResultState.Loading).isLoading)
-            getProfile()
-    }
 
     private val _showDialog1 = MutableStateFlow(false) // used by booking page when timer is expired
     val showDialog1 :StateFlow<Boolean> = _showDialog1
@@ -191,8 +196,8 @@ class SharedViewModel @Inject constructor(
     fun startTimer(durationMillis: Long) {
 
         logInformationOnLogcat("Timer","Starting Timer")
-        //remainingMillis = durationMillis
-        remainingMillis = 50*1000
+        remainingMillis = durationMillis
+        //remainingMillis = 50*1000
         _isTimerRunning.value = true
 
         timerJob?.cancel()
@@ -244,6 +249,7 @@ class SharedViewModel @Inject constructor(
         _showLiveIcon.value = false
         liveIconJob?.cancel() // Cancel the running Job
     }
+
 
     override fun onCleared() {
         super.onCleared()

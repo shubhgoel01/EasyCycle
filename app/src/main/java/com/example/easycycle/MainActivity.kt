@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -20,7 +19,6 @@ import androidx.navigation.compose.rememberNavController
 import com.example.easycycle.data.model.ResultState
 import com.example.easycycle.presentation.navigation.Routes
 import com.example.easycycle.presentation.navigation.myApp
-import com.example.easycycle.presentation.navigation.navigateToHomeScreen
 import com.example.easycycle.presentation.viewmodel.AdminViewModel
 import com.example.easycycle.presentation.viewmodel.CycleViewModel
 import com.example.easycycle.presentation.viewmodel.SharedViewModel
@@ -69,7 +67,8 @@ class MainActivity : ComponentActivity() {
                     val startDestination = if (user.value == null) {
                         Routes.SignInScreen.route
                     } else {
-                        sharedViewModel.updateProfileDataState(ResultState.Loading(true))
+                        Log.d("MainActivity","Set Destination as homeScreen")
+                        //sharedViewModel.updateProfileDataState(ResultState.Loading(true))
                         userViewModel.updateScheduleDataState(ResultState.Loading(true))
                         userViewModel.updateUserDataState(ResultState.Loading(true))
                         Routes.UserHome.route
@@ -79,7 +78,7 @@ class MainActivity : ComponentActivity() {
                     // Passing all the necessary parameters to myApp
                     myApp(
                         navController = navController,
-                        startDestination = startDestination ?: Routes.SignInScreen.route,
+                        startDestination = startDestination,
                         sharedViewModel = sharedViewModel,
                         userViewModel = userViewModel,
                         cycleViewModel = cycleViewModel,

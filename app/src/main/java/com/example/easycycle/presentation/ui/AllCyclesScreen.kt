@@ -1,6 +1,5 @@
 package com.example.easycycle.presentation.ui
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -61,19 +60,11 @@ fun AllCyclesScreen(
     }
 
     when(val state = allCycleDataState.value) {
-        is ResultState.Loading -> {
-            if(state.isLoading) {
-                LoadingPage()
-            }
-            else{
-                navigateToErrorScreen(navController,true,"AllCyclesScreen 1")
-            }
-        }
         is ResultState.Error -> {
             navigateToErrorScreen(navController,false,"AllCyclesScreen 2")
         }
         is ResultState.Success -> {
-            val cyclesList = (allCycleDataState.value as ResultState.Success).data!!
+            val cyclesList = state.data!!
             val bookedCycles = cyclesList.filter { it.booked }.sortedBy { it.cycleStatus.estimatedNextAvailableTime }
             val availableCycles = cyclesList.filter { !it.booked }.sortedByDescending { it.underProcess }
 
@@ -109,6 +100,7 @@ fun AllCyclesScreen(
                 }
             }
         }
+        else -> {}
     }
 }
 

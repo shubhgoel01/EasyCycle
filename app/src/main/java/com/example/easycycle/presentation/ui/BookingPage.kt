@@ -43,7 +43,6 @@ import com.example.easycycle.calculateEstimatedCost
 import com.example.easycycle.data.Enum.Location
 import com.example.easycycle.data.model.Schedule
 import com.example.easycycle.data.model.ResultState
-import com.example.easycycle.presentation.navigation.Routes
 import com.example.easycycle.presentation.navigation.navigateToAllCycleScreen
 import com.example.easycycle.presentation.navigation.navigateToErrorScreen
 import com.example.easycycle.presentation.navigation.navigateToHomeScreen
@@ -103,15 +102,6 @@ fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedVi
         else if (createSchedulesState.value is ResultState.Error)
             navigateToErrorScreen(navController, message = "Booking Page 1")
     }
-    when (val state = createSchedulesState.value) {
-        is ResultState.Loading -> {
-            if (state.isLoading) {
-                Toast.makeText(context, "Processing Your Request", Toast.LENGTH_SHORT).show()
-                LoadingPage()
-            }
-        }
-        else ->{}
-    }
 
     LaunchedEffect(reserveCycleState.value){
         if(reserveCycleState.value is ResultState.Error)
@@ -133,19 +123,7 @@ fun BookingScreen(rentNow: Boolean, rentLater: Boolean,sharedViewModel: SharedVi
 
             when(val state = reserveCycleState.value){
                 is  ResultState.Loading ->{
-                   if(state.isLoading){
-                       Box(
-                           modifier = Modifier
-                               .size(40.dp)
-                       ) {
-                           LoadingPage(
-                               modifier = Modifier
-                                   .align(Alignment.TopEnd)
-                                   .fillMaxSize()
-                           )
-                       }
-                   }
-                    else {
+                   if(!state.isLoading){
                        Text(
                            text = "No cycles available",
                            style = MaterialTheme.typography.bodySmall,

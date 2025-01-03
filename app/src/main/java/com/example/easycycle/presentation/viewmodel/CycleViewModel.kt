@@ -18,6 +18,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -37,6 +40,13 @@ class CycleViewModel @Inject constructor(
     var getAllCycleDataState: StateFlow<ResultState<List<Cycle>>> = _getAllCycleDataState
     fun updateGetAllCycleDataState(it:ResultState<List<Cycle>>){
         _getAllCycleDataState.value = it
+    }
+
+    private val _cycleViewModelLoadingShow = MutableStateFlow<Boolean>(false)
+    val cycleViewModelLoadingShow : StateFlow<Boolean> = _cycleViewModelLoadingShow
+
+    init {
+        observeLoadingStates()
     }
 
     fun addCycle(cycle: Cycle){
@@ -131,4 +141,20 @@ class CycleViewModel @Inject constructor(
             }
         }
     }
+
+    private fun observeLoadingStates() {
+        combine(
+            _reserveAvailableCycleState,
+            _getAllCycleDataState,
+        ) { reserveAvailableCycleState, getAllCycleDataState ->
+            // Check if any state is loading
+            listOf(reserveAvailableCycleState, getAllCycleDataState).any {
+                it is ResultState.Loading && it.isLoading
+            }
+        }.onEach { isLoading ->
+            _cycleViewModelLoadingShow.value = isLoading
+        }.launchIn(viewModelScope)
+
+    }
+
 }

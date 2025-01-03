@@ -23,6 +23,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
@@ -59,6 +62,13 @@ class UserViewModel @Inject constructor(
     val createScheduleState: StateFlow<ResultState<Schedule>> = _createScheduleState
     fun updateCreateScheduleState(value:ResultState<Schedule>){
         _createScheduleState.value = value
+    }
+
+    private val _userViewModelLoadingShow = MutableStateFlow<Boolean>(false)
+    val userViewModelLoadingShow : StateFlow<Boolean> = _userViewModelLoadingShow
+
+    init {
+        observeLoadingStates()
     }
 
     fun fetchStudentDetails(context:Context,registrationNumber:String, onComplete:(ResultState<Profile>)->Unit, onError:(ResultState<Profile>)->Unit){
@@ -222,6 +232,24 @@ class UserViewModel @Inject constructor(
                 _returnOrCancelSchedule.value = ResultState.Error(e)
             }
         }
+    }
+
+
+    private fun observeLoadingStates() {
+        combine(
+            _returnOrCancelSchedule,
+            _userDataState,
+            _scheduleDataState,
+            _createScheduleState
+        ) { returnOrCancelSchedule, userDataState, scheduleDataState, createScheduleState ->
+            // Check if any state is loading
+            listOf(returnOrCancelSchedule, userDataState, scheduleDataState, createScheduleState).any {
+                it is ResultState.Loading && it.isLoading
+            }
+        }.onEach { isLoading ->
+            _userViewModelLoadingShow.value = isLoading
+        }.launchIn(viewModelScope)
+
     }
 
 }

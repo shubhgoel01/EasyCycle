@@ -1,7 +1,6 @@
 package com.example.easycycle.presentation.ui
 
 import android.app.Activity
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -17,7 +16,6 @@ import androidx.navigation.NavController
 import com.example.easycycle.CustomScannerActivity
 import com.example.easycycle.data.model.ResultState
 import com.example.easycycle.logErrorOnLogcat
-import com.example.easycycle.logInformationOnLogcat
 import com.example.easycycle.presentation.navigation.navigateToBookingScreen
 import com.example.easycycle.presentation.navigation.navigateToErrorScreen
 import com.example.easycycle.presentation.navigation.navigateToHomeScreen
@@ -120,15 +118,4 @@ fun QRCodeScannerScreen(
             else -> {}
         }
     }
-
-
-    when (val state = reserveCycleState.value) {
-        is ResultState.Loading -> {
-            if (state.isLoading && scannedCode.value != "" && scannedCode.value != null)
-                LoadingPage()
-        }
-        else -> {}
-    }
-
 }
-

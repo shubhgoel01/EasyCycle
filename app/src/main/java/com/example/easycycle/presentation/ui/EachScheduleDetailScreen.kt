@@ -82,27 +82,12 @@ fun eachScheduleDetailScreen(
         }
     }
 
-    when(val state = returnOrCancelSchedule.value){
-        is ResultState.Loading -> {
-            if(state.isLoading)
-                LoadingPage()
+    LaunchedEffect(schedulesDataState.value){
+        if(schedulesDataState.value is ResultState.Error){
+            //TODO Navigate To Error Screen
         }
-        else -> {}
     }
-
     when(val state = schedulesDataState.value){
-        is ResultState.Loading -> {
-            if(state.isLoading){
-                LoadingPage()
-            }
-//            else {
-//                navigateToErrorScreen(navController,true,"EachScheduleDetailScreen 1")
-//            }
-        }
-        is ResultState.Error -> {
-            navigateToErrorScreen(navController,false,"EachScheduleDetailScreen 1")
-            //TODO move to error screen/Toast or move to home screen
-        }
         is ResultState.Success -> {
             schedule = state.data!!
             ScheduleDetailUI(
@@ -111,6 +96,7 @@ fun eachScheduleDetailScreen(
                 enabled
             )
         }
+        else -> {}
     }
 }
 

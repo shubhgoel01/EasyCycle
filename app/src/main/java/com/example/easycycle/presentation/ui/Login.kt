@@ -53,7 +53,7 @@ fun SignInScreen(sharedViewModel: SharedViewModel, updateUserType : (String)->Un
         selectedOption2=""
     }
     var expanded1 by remember { mutableStateOf(false) }
-    var onExpandChange1={
+    val onExpandChange1={
         expanded1=!expanded1
         textBox1=""
         password=""
@@ -63,13 +63,13 @@ fun SignInScreen(sharedViewModel: SharedViewModel, updateUserType : (String)->Un
         selectedOption2 = value
     }
 
-    var onExpandChange2={
+    val onExpandChange2={
         expanded2=!expanded2
         textBox1=""
         password=""
     }
 
-    val OnChange1 = { value : String ->
+    val onChange1 = { value : String ->
         textBox1=value
     }
 
@@ -103,7 +103,7 @@ fun SignInScreen(sharedViewModel: SharedViewModel, updateUserType : (String)->Un
             ComponentDropdown(selectedOption2,loginMethod,inputChange2, onExpandChange2,expanded2,label = "Select Login Method")
             Spacer(modifier = Modifier.height(24.dp))
 
-            Component_textField(textBox1,OnChange1,label= if(selectedOption2=="Reg.No.") "Registration Number" else if(selectedOption2=="Admin Id.") "Admin Id." else "Email", readOnly = (selectedOption2==""))
+            Component_textField(textBox1,onChange1,label= if(selectedOption2=="Reg.No.") "Registration Number" else if(selectedOption2=="Admin Id.") "Admin Id." else "Email", readOnly = (selectedOption2==""))
             Spacer(modifier = Modifier.height(10.dp))
 
             Component_textField(password,passwordChange, visualTransformation = PasswordVisualTransformation(),label="Password", readOnly = (textBox1==""))

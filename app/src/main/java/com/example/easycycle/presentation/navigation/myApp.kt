@@ -30,20 +30,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
-import com.example.easycycle.data.Enum.QrStatus
 import com.example.easycycle.data.model.ResultState
-import com.example.easycycle.data.remote.CycleFirebaseService
 import com.example.easycycle.logMessageOnLogcat
 import com.example.easycycle.presentation.ui.AllCyclesScreen
 import com.example.easycycle.presentation.ui.BookingScreen
-import com.example.easycycle.presentation.ui.LoadingPage
+import com.example.easycycle.presentation.ui.LoadingComposable
 import com.example.easycycle.presentation.ui.QRCodeScannerScreen
 import com.example.easycycle.presentation.ui.SignInScreen
 import com.example.easycycle.presentation.ui.components.BookingFAB
 import com.example.easycycle.presentation.ui.components.Component_tDialogBox
 import com.example.easycycle.presentation.ui.components.ViewTopAppBar
 import com.example.easycycle.presentation.ui.components.drawerContent
-import com.example.easycycle.presentation.ui.components.snackBarWithAction
 import com.example.easycycle.presentation.ui.eachScheduleDetailScreen
 import com.example.easycycle.presentation.ui.errorPage
 import com.example.easycycle.presentation.ui.homeScreen
@@ -61,6 +58,9 @@ fun myApp(
     cycleViewModel: CycleViewModel,
     snackbarHostState : SnackbarHostState
 ) {
+    val userViewModelLoadingShow = userViewModel.userViewModelLoadingShow.collectAsState()
+    val cycleViewModelLoadingShow = cycleViewModel.cycleViewModelLoadingShow.collectAsState()
+
     val scaffoldState= rememberScaffoldState()
     val scope= rememberCoroutineScope()
 
@@ -96,14 +96,6 @@ fun myApp(
         fabExpanded = false
     }
 
-    //Floating Action Button2
-//    val onFabClick2 = {
-//
-//    }
-//    val onConfirmFab2: (String) -> Unit = { value ->
-//        println("Option clicked: $value")
-//    }
-
     val userDataState = userViewModel.userDataState.collectAsState()
 
     //Moved from booking page to here, now where-ever the user is, i.e. on any screen the dialog will be visible
@@ -136,7 +128,7 @@ fun myApp(
         )
         Scaffold(
             topBar = {
-                if( currentRoute !=  Routes.LoadingScreen.route)
+                if( currentRoute !=  Routes.SignInScreen.route)
                     ViewTopAppBar("EasyCycle",scope,scaffoldState, sharedViewModel = sharedViewModel)
             },
             drawerContent = {
@@ -158,6 +150,10 @@ fun myApp(
             )
         {
             Navigation(navController,startDestination,it,userViewModel,sharedViewModel,cycleViewModel)
+        }
+
+        if( userViewModelLoadingShow.value || cycleViewModelLoadingShow.value ){
+            LoadingComposable(true)
         }
     }
 
@@ -199,7 +195,7 @@ fun Navigation(navController: NavController,
         composable(Routes.LoadingScreen.route) {
             logMessageOnLogcat("navigation","Navigating to LoadingScreen")
 
-            LoadingPage()
+            LoadingComposable(true)
         }
         composable(
             Routes.BookingScreen.route,
@@ -371,6 +367,8 @@ sealed class Routes(val route: String) {
     data object AllCycleScreen : Routes("AllCycleScreen")
     data object QrScannerScreen : Routes("QrScannerScreen")
 }
+
+
 
 
 
